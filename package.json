@@ -9,14 +9,18 @@
     "deploy:web": "cd frontend && wrangler pages deploy . --project-name=your-site",
     "db:init": "wrangler d1 execute your-site-db --remote --file=./worker/schema.sql",
     "db:init:local": "wrangler d1 execute your-site-db --local --file=./worker/schema.sql",
-    "css": "cd build && ./node_modules/.bin/tailwindcss -i ./tailwind.input.css -o ../frontend/tailwind.css --minify",
-    "release": "node build/release.mjs",
-    "test": "cd tests && node run-all.mjs"
+    "css": "npm --prefix build run css",
+    "release": "npm --prefix build run release",
+    "test": "cd tests && node run-all.mjs",
+    "css:watch": "npm --prefix build run css:watch"
   },
   "devDependencies": {
     "wrangler": "^4.0.0"
   },
   "engines": {
     "node": ">=22"
-  }
+  },
+  "workspaces": [
+    "build"
+  ]
 }
