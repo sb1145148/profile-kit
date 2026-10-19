@@ -17,4 +17,4 @@ dist/
 
 # 测试产物（重跑会重新生成）
 tests/*.png
-tests/node_modules/
+tests/node_modules
