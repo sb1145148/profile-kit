@@ -5,6 +5,9 @@
 
 [English](README.md) · [部署指南](DEPLOY.md)
 
+用 AI 改这个项目？先让它读 [AGENTS.md](AGENTS.md) —— 里面写了东西都在哪、
+以及 5 个会白白浪费一下午的坑。[llms.txt](llms.txt) 是给机器读的索引。
+
 ![首页](docs/home.jpg)
 
 <p align="center">

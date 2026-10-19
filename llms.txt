@@ -1,0 +1,55 @@
+# profile-kit
+
+> A personal homepage that runs entirely on Cloudflare's free tier: static
+> frontend on Pages, API on Workers, data in D1. No framework, no bundler,
+> 914 end-to-end assertions that run locally without a Cloudflare account.
+
+Self-hosted personal site for a single owner. Includes a profile card, short
+posts, an image gallery, Markdown articles, a guestbook with nested replies, a
+changelog, search, RSS, and a 12-panel admin interface. Chinese-first UI with an
+English README.
+
+The project targets one-person sites: small enough to read in an afternoon,
+deployed in seconds, free forever. It is not a multi-user platform and has no
+plans to become one.
+
+## Start here
+
+- [AGENTS.md](AGENTS.md): working notes for AI agents — where things live, five
+  gotchas that will waste an afternoon, and what you cannot do without a
+  Cloudflare account
+- [README.md](README.md): what it is, what's inside, how to deploy
+- [DEPLOY.md](DEPLOY.md): step-by-step Cloudflare setup, ~15 minutes
+- [README.zh-CN.md](README.zh-CN.md): the same README in Chinese
+
+## Customization
+
+- [worker/worker.js](worker/worker.js): the `PROFILE` constant at the top is the
+  only place profile data lives (name, bio, skills, projects, playlist, contacts)
+- [frontend/style.css](frontend/style.css): color and theme variables
+- [worker/schema.sql](worker/schema.sql): full D1 schema for a fresh database
+- [worker/migrations/](worker/migrations/): incremental migrations for existing databases
+
+## Architecture
+
+- [frontend/](frontend/): static site, one HTML file per page, no SPA router
+- [worker/](worker/): the API — `worker.js` routes to `routes/<resource>.js`,
+  shared helpers in `lib/`
+- [frontend/functions/](frontend/functions/): Pages Functions that inject Open
+  Graph tags into articles and generate `sitemap.xml`
+- [build/release.mjs](build/release.mjs): stamps content hashes into every asset
+  reference and bumps the service worker cache version
+
+## Tests
+
+- [tests/README.md](tests/README.md): how to run them, and why offline behavior
+  can only be verified in production
+- [tests/run-all.mjs](tests/run-all.mjs): runs all 9 suites, restarting the local
+  server between each so every suite starts from an empty database
+
+## Optional
+
+- [scripts/seed-demo.mjs](scripts/seed-demo.mjs): fills a fresh install with
+  sample content so the site isn't empty on first load
+- [docs/](docs/): screenshots
+- [LICENSE](LICENSE): MIT, code only — demo content is placeholder

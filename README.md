@@ -5,6 +5,10 @@ A personal homepage that runs entirely on Cloudflare's free tier.
 
 [中文说明](README.zh-CN.md) · [Deployment guide](DEPLOY.md)
 
+Using an AI agent? Point it at [AGENTS.md](AGENTS.md) first — it covers where things
+live and the five gotchas that will otherwise waste an afternoon. [llms.txt](llms.txt)
+has a machine-readable index.
+
 ![Homepage](docs/home.jpg)
 
 <p align="center">
