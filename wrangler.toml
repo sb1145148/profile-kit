@@ -1,0 +1,56 @@
+# ============================================================
+#  Cloudflare Worker 配置
+#
+#  一键部署按钮会用这个文件。手动部署也在这个目录跑：
+#    npx wrangler deploy
+#
+#  部署前必做：
+#    1) npx wrangler d1 create your-site-db
+#       把输出的 database_id 填到下面的 database_id
+#    2) 把 ALLOWED_ORIGINS / SITE_URL 改成你自己的域名
+#    3) npx wrangler d1 execute your-site-db --remote --file=./worker/schema.sql
+# ============================================================
+
+name = "your-site-api"                # Worker 名称，部署后是 your-site-api.<你的子域>.workers.dev
+main = "worker/worker.js"             # 入口文件
+compatibility_date = "2025-06-01"     # 兼容性日期，决定启用哪些运行时行为
+
+# ---------- 自定义域名（可选） ----------
+# 你有自己的域名时，取消下面三行注释，把 api.example.com 改成你的。
+# custom_domain = true 会由 wrangler 自动建 DNS 记录并申请证书。
+# 没有域名的话删掉这一段，直接用 workers.dev 子域即可。
+#
+# routes = [
+#   { pattern = "api.example.com", custom_domain = true }
+# ]
+
+# ---------- D1 数据库绑定 ----------
+# binding = "DB" 对应代码里的 env.DB，名字不要改
+[[d1_databases]]
+binding = "DB"
+database_name = "your-site-db"
+database_id = "REPLACE_WITH_YOUR_D1_ID"
+
+# 留言配图存在 D1 里（images 表），所以不需要 R2。
+# 想换成 R2 的话，加 R2 绑定再改 worker.js 里的 storeImage / handleMedia。
+
+# ---------- 环境变量 ----------
+[vars]
+# CORS 允许的前端来源，多个用英文逗号分隔。
+# 本地开发可以写 "*"，上线建议收紧到你自己的域名。
+ALLOWED_ORIGINS = "https://example.com,https://www.example.com,https://your-site.pages.dev"
+
+# 站点地址：生成 RSS / sitemap 里的绝对链接要用它
+SITE_URL = "https://example.com"
+
+# ---------- 定时任务：自动备份 ----------
+# 每天 UTC 03:00（北京时间 11:00）跑一次，把数据导出成 JSON 提交到 GitHub。
+# 需要在后台「站点设置」里打开自动备份，再配置令牌：
+#     npx wrangler secret put GH_TOKEN
+# （细粒度 PAT 即可，只要 Contents: Read and write）
+[triggers]
+crons = ["0 3 * * *"]
+
+# ---------- 可观测性（免费额度内，方便排查线上问题） ----------
+[observability]
+enabled = true

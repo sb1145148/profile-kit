@@ -1,0 +1,20 @@
+# 依赖与构建产物
+node_modules/
+.wrangler/
+dist/
+
+# 本地密钥（千万不要提交）
+.dev.vars
+.env
+.env.*
+*.pem
+
+# 编辑器 / 系统
+.DS_Store
+.idea/
+.vscode/
+*.log
+
+# 测试产物（重跑会重新生成）
+tests/*.png
+tests/node_modules/

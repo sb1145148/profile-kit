@@ -1,0 +1,22 @@
+{
+  "name": "profile-kit",
+  "version": "1.0.0",
+  "private": true,
+  "description": "一个跑在 Cloudflare 上的个人主页：Pages + Workers + D1",
+  "scripts": {
+    "dev": "cd worker && wrangler dev",
+    "deploy:api": "wrangler deploy",
+    "deploy:web": "cd frontend && wrangler pages deploy . --project-name=your-site",
+    "db:init": "wrangler d1 execute your-site-db --remote --file=./worker/schema.sql",
+    "db:init:local": "wrangler d1 execute your-site-db --local --file=./worker/schema.sql",
+    "css": "cd build && ./node_modules/.bin/tailwindcss -i ./tailwind.input.css -o ../frontend/tailwind.css --minify",
+    "release": "node build/release.mjs",
+    "test": "cd tests && node run-all.mjs"
+  },
+  "devDependencies": {
+    "wrangler": "^4.0.0"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}

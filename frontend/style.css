@@ -1,0 +1,410 @@
+/* ============================================================
+   自定义样式：只放 Tailwind 覆盖不到的部分
+   （Tailwind 编译产物在 tailwind.css，本文件在它之后加载，可以覆盖）
+   ============================================================ */
+
+/* ============================================================
+   页面背景：极光光晕 + 网格纹理，颜色跟随时段变化
+   ------------------------------------------------------------
+   结构：
+     .bg-layer            固定铺满视口，z-index:-1（在内容之下、在画布之上）
+       .bg-layer::before  网格纹理（用径向遮罩从中心淡出，不会铺满显得吵）
+       .bg-layer::after   两团光晕（用 radial-gradient 直接做柔化，比 filter:blur 省性能）
+
+   颜色分两层控制：
+     --glow-a-rgb / --glow-b-rgb   决定"什么颜色" ← 由 data-daypart 决定
+     --glow-alpha / --grid-color   决定"多浓"     ← 由 data-theme 决定
+
+   这样 4 个时段 × 2 种主题共 8 种组合，不用写 8 套完整样式。
+
+   ⚠️ 光晕只放在角落、透明度压得很低，正文区域保持干净底 ——
+      背景是为内容服务的，不能反过来抢注意力。
+   ============================================================ */
+
+.bg-layer {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  overflow: hidden;
+  background-color: #f8fafc;
+}
+[data-theme="dark"] .bg-layer { background-color: #020617; }
+
+/* ---------- 网格 ---------- */
+.bg-layer::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(var(--grid-color) 1px, transparent 1px),
+    linear-gradient(90deg, var(--grid-color) 1px, transparent 1px);
+  background-size: 36px 36px;
+  /* 从上方中心向外淡出：只在"头部区域"有纹理，往下越来越干净 */
+  -webkit-mask-image: radial-gradient(ellipse 95% 75% at 50% 12%, #000 15%, transparent 88%);
+  mask-image: radial-gradient(ellipse 95% 75% at 50% 12%, #000 15%, transparent 88%);
+}
+
+/* ---------- 光晕 ---------- */
+/*
+  ⚠️ 这里踩过一次坑：一开始写的是 `circle closest-side at 6% 4%`，
+     closest-side 会把半径取成「到最近那条边的距离」——位置在 4% 高度处，
+     最近的就是上边缘，半径只有 4% × 62%（background-size）≈ 20px。
+     结果光晕小得几乎看不见。
+
+     所以半径必须**显式给**，而且用 clamp 跟着视口走：
+     宽屏时够大够柔，手机上也占满角落但不至于糊成一片。
+*/
+.bg-layer::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image:
+    radial-gradient(circle var(--glow-size-a) at 0% 0%,
+      rgb(var(--glow-a-rgb) / var(--glow-alpha)) 0%, transparent 70%),
+    radial-gradient(circle var(--glow-size-b) at 100% 100%,
+      rgb(var(--glow-b-rgb) / var(--glow-alpha)) 0%, transparent 70%);
+  background-repeat: no-repeat;
+}
+
+/* ---------- 浓淡：浅色更实一点，深色要压下去（否则显脏） ---------- */
+:root {
+  /* 光晕大小：跟着视口走，宽屏够大够柔，手机上也不至于糊满屏 */
+  --glow-size-a: clamp(420px, 62vw, 980px);
+  --glow-size-b: clamp(360px, 54vw, 860px);
+  /* 浓度：调到"明显能看出颜色，但不影响读字" */
+  --glow-alpha: .85;
+  --grid-color: rgb(148 163 184 / .40);
+}
+[data-theme="dark"] {
+  /* 深色在近黑底上本来就吃色，浓度要更高一点才透得出来 */
+  --glow-alpha: .70;
+  --grid-color: rgb(100 116 139 / .50);
+}
+
+/* ---------- 时段配色 ---------- */
+/* 浅色：一律用粉彩，保证在白底上是"提亮"而不是"压暗" */
+[data-daypart="morning"] { --glow-a-rgb: 253 186 116; --glow-b-rgb: 249 168 212; }  /* 暖橙 → 粉 */
+[data-daypart="day"]     { --glow-a-rgb: 147 197 253; --glow-b-rgb: 165 243 252; }  /* 天蓝 → 青 */
+[data-daypart="evening"] { --glow-a-rgb: 216 180 254; --glow-b-rgb: 253 186 116; }  /* 紫 → 落日橙 */
+[data-daypart="night"]   { --glow-a-rgb: 165 180 252; --glow-b-rgb: 196 181 253; }  /* 靛蓝 → 淡紫 */
+
+/* 深色：可以更饱和、更深，在近黑底上才透得出来 */
+[data-theme="dark"][data-daypart="morning"] { --glow-a-rgb: 245 158 11;  --glow-b-rgb: 219 39 119; }
+[data-theme="dark"][data-daypart="day"]     { --glow-a-rgb: 59 130 246;  --glow-b-rgb: 6 182 212; }
+[data-theme="dark"][data-daypart="evening"] { --glow-a-rgb: 168 85 247;  --glow-b-rgb: 249 115 22; }
+[data-theme="dark"][data-daypart="night"]   { --glow-a-rgb: 79 70 229;   --glow-b-rgb: 139 92 246; }
+
+/* 尊重"减少动态效果"：背景本身是静态的，这里只是留个位置给以后的动画 */
+@media (prefers-reduced-motion: reduce) {
+  .bg-layer::after { transition: none; }
+}
+
+
+/* 留言/项目卡片的入场动画 */
+@keyframes fade-up {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: none; }
+}
+.animate-fade-up { animation: fade-up .28s ease-out both; }
+
+/* 技能进度条：让宽度变化有个过渡 */
+.skill-bar { transition: width .6s cubic-bezier(.22, 1, .36, 1); }
+
+/* 留言/说说正文允许换行，同时避免超长英文或链接把布局撑破 */
+.message-content { white-space: pre-wrap; overflow-wrap: anywhere; }
+
+/* 细一点的滚动条 */
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-thumb { background: rgb(148 163 184 / .45); border-radius: 9999px; }
+::-webkit-scrollbar-thumb:hover { background: rgb(148 163 184 / .7); }
+
+/* ============================================================
+   Markdown 排版（文章正文 / 关于我）
+   这些 HTML 是 Worker 里渲染好的，类名前缀统一是 md-
+   用 .prose-custom 而不是引 Tailwind 的 typography 插件，少一个依赖
+   ============================================================ */
+.prose-custom { font-size: .95rem; line-height: 1.85; color: rgb(51 65 85); overflow-wrap: anywhere; }
+[data-theme="dark"] .prose-custom { color: rgb(203 213 225); }
+.prose-custom > * + * { margin-top: 1.1em; }
+
+.prose-custom h1,
+.prose-custom h2,
+.prose-custom h3,
+.prose-custom h4,
+.prose-custom h5,
+.prose-custom h6 {
+  font-weight: 700; line-height: 1.35; color: rgb(15 23 42);
+  margin-top: 1.8em; margin-bottom: .6em;
+}
+[data-theme="dark"] .prose-custom h1,
+[data-theme="dark"] .prose-custom h2,
+[data-theme="dark"] .prose-custom h3,
+[data-theme="dark"] .prose-custom h4,
+[data-theme="dark"] .prose-custom h5,
+[data-theme="dark"] .prose-custom h6 { color: rgb(241 245 249); }
+
+.prose-custom h1 { font-size: 1.7em; }
+.prose-custom h2 { font-size: 1.35em; padding-bottom: .3em; border-bottom: 1px solid rgb(148 163 184 / .25); }
+.prose-custom h3 { font-size: 1.15em; }
+
+.prose-custom a { color: rgb(37 99 235); text-decoration: underline; text-underline-offset: 3px; }
+[data-theme="dark"] .prose-custom a { color: rgb(96 165 250); }
+.prose-custom a:hover { text-decoration-thickness: 2px; }
+
+.prose-custom strong { font-weight: 700; color: rgb(15 23 42); }
+[data-theme="dark"] .prose-custom strong { color: rgb(248 250 252); }
+
+.prose-custom ul, .prose-custom ol { padding-left: 1.5em; }
+.prose-custom ul { list-style: disc; }
+.prose-custom ol { list-style: decimal; }
+.prose-custom li + li { margin-top: .35em; }
+.prose-custom li::marker { color: rgb(148 163 184); }
+
+.prose-custom blockquote {
+  border-left: 4px solid rgb(59 130 246);
+  background: rgb(59 130 246 / .08);
+  padding: .7em 1em; border-radius: 0 .6rem .6rem 0; color: rgb(71 85 105);
+}
+[data-theme="dark"] .prose-custom blockquote { color: rgb(203 213 225); }
+
+.prose-custom hr { border: none; border-top: 1px solid rgb(148 163 184 / .35); margin: 2em 0; }
+
+.md-code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: .88em; background: rgb(148 163 184 / .18);
+  padding: .15em .4em; border-radius: .35rem;
+}
+
+.md-pre {
+  background: rgb(15 23 42); color: rgb(226 232 240);
+  border-radius: .9rem; padding: 1em 1.1em; overflow-x: auto;
+  font-size: .85em; line-height: 1.6;
+}
+.md-pre code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; white-space: pre; }
+[data-theme="dark"] .md-pre { background: rgb(2 6 23); }
+
+/* ------------------------------------------------------------
+ * 留言板里的 Markdown 内容
+ *
+ * .md-code / .md-pre 这些是全局的（文章和留言共用），
+ * 这里只补「容器内的块级元素」排版 —— 留言卡片空间小，
+ * 段落间距要比文章正文紧凑得多，不然一条 3 行的留言会撑得很高。
+ * ------------------------------------------------------------ */
+.message-html {
+  overflow-wrap: anywhere;
+}
+.message-html > :first-child { margin-top: 0; }
+.message-html > :last-child { margin-bottom: 0; }
+
+.message-html p { margin: .3em 0; }
+
+.message-html ul,
+.message-html ol { margin: .35em 0; padding-left: 1.4em; }
+.message-html ul { list-style: disc; }
+.message-html ol { list-style: decimal; }
+.message-html li { margin: .1em 0; }
+
+.message-html blockquote {
+  border-left: 3px solid rgb(148 163 184 / .5);
+  padding-left: .7em;
+  margin: .45em 0;
+  color: rgb(100 116 139);
+}
+[data-theme="dark"] .message-html blockquote {
+  color: rgb(148 163 184);
+  border-left-color: rgb(100 116 139 / .7);
+}
+
+.message-html a {
+  color: rgb(37 99 235);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  text-decoration-thickness: 1px;
+}
+[data-theme="dark"] .message-html a { color: rgb(96 165 250); }
+
+.message-html del { opacity: .65; }
+.message-html hr { border: none; border-top: 1px solid rgb(148 163 184 / .35); margin: .6em 0; }
+
+/* Markdown 表格：外面套一层做横向滚动，窄屏也不会撑破页面 */
+.md-table-wrap {
+  overflow-x: auto;
+  border: 1px solid rgb(148 163 184 / .3);
+  border-radius: .9rem;
+}
+.md-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: .88em;
+  line-height: 1.55;
+}
+.md-table th,
+.md-table td {
+  padding: .55em .85em;
+  text-align: left;
+  border-bottom: 1px solid rgb(148 163 184 / .22);
+  vertical-align: top;
+}
+.md-table thead th {
+  background: rgb(148 163 184 / .12);
+  font-weight: 600;
+  white-space: nowrap;
+}
+.md-table tbody tr:last-child td { border-bottom: none; }
+.md-table tbody tr:hover { background: rgb(148 163 184 / .07); }
+
+
+.md-img { border-radius: .9rem; max-width: 100%; height: auto; box-shadow: 0 1px 3px rgb(0 0 0 / .12); }
+
+/* 搜索命中的高亮 */
+mark { background: rgb(253 224 71 / .55); color: inherit; border-radius: .2rem; padding: 0 .15em; }
+
+/* 字母头像：用昵称首字生成一个彩色圆，颜色由 --av-h（色相）决定 */
+.letter-avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  flex: 0 0 auto;
+  border-radius: 9999px;
+  font-size: .8rem;
+  font-weight: 600;
+  line-height: 1;
+  user-select: none;
+  background: hsl(var(--av-h, 210) 72% 90%);
+  color: hsl(var(--av-h, 210) 55% 32%);
+}
+[data-theme="dark"] .letter-avatar {
+  background: hsl(var(--av-h, 210) 42% 24%);
+  color: hsl(var(--av-h, 210) 65% 76%);
+}
+.letter-avatar.sm { width: 1.6rem; height: 1.6rem; font-size: .7rem; }
+
+/* ------------------------------------------------------------
+ * 折叠：说说列表 + 留言的嵌套回复
+ * ------------------------------------------------------------ */
+
+/* 回复折叠。用原生 <details>，所以键盘（Tab + Enter）和读屏是白送的 */
+.reply-summary {
+  display: inline-flex;
+  align-items: center;
+  gap: .35rem;
+  cursor: pointer;
+  user-select: none;
+  padding: .3rem .7rem;
+  border-radius: 9999px;
+  border: 1px solid rgb(148 163 184 / .35);
+  font-size: .75rem;
+  font-weight: 500;
+  color: rgb(100 116 139);
+  transition: border-color .15s, color .15s, background-color .15s;
+  list-style: none;
+}
+.reply-summary::-webkit-details-marker { display: none; }
+.reply-summary:hover {
+  border-color: rgb(96 165 250);
+  color: rgb(37 99 235);
+  background: rgb(239 246 255 / .8);
+}
+[data-theme="dark"] .reply-summary { color: rgb(148 163 184); }
+[data-theme="dark"] .reply-summary:hover {
+  border-color: rgb(59 130 246);
+  color: rgb(96 165 250);
+  background: rgb(30 58 138 / .25);
+}
+/* 展开时箭头转 90 度，收起时指右 */
+.reply-summary .chev { transition: transform .18s ease; display: inline-block; }
+.reply-thread[open] > .reply-summary .chev { transform: rotate(90deg); }
+
+/* 展开时给个小动画，不然内容"啪"地出现有点突然 */
+.reply-thread[open] > ul { animation: reply-in .18s ease-out; }
+@keyframes reply-in {
+  from { opacity: 0; transform: translateY(-3px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* 收起时说说的多余条目 —— 这里不加动画，因为是瞬间切换 */
+#posts-toggle:not([hidden]) { display: block; }
+
+/* ------------------------------------------------------------
+ * 触摸设备上的最小点击区域
+ *
+ * Apple HIG 和 Google Material 都建议 44×44，WCAG 2.5.5 也是这个数。
+ * 头部那几个图标按钮原本只有 39×30，是页面上最好点错的地方 ——
+ * 那些已经改成 h-11 w-11 了。
+ *
+ * 剩下的是各种「chip 式」按钮（社交链接、项目卡片上的经典版/彩蛋版、
+ * 标签、分页…），它们的 class 组合有十几种变体，逐个替换不划算，
+ * 而且以后新加的还会漏。所以这里统一兜一层。
+ *
+ * ⚠️ 只在 pointer: coarse（手指操作）的设备上生效。
+ *    桌面端鼠标指针精度高，没必要为了这个把按钮撑大、破坏排版节奏。
+ *
+ * 不加 min-width：中文按钮本来就宽，硬撑到 44 反而会破坏右侧对齐。
+ * ------------------------------------------------------------ */
+@media (pointer: coarse) {
+  /* ⚠️ 注意必须同时设 display —— min-height 对 display:inline 的元素
+     是无效的。第一版我只写了 min-height，那些没有 inline-flex 的
+     chip 链接（如项目卡片上的「▶ B站」）就完全没被兜住。
+     这是用浏览器实测发现的，光看代码看不出来。
+
+  ⚠️⚠️ 但反过来踩了更大的坑：不加 :not(...) 的话，这条规则会把
+      **已经显式指定了 display 的元素**也强行改成 inline-flex。
+      实际后果：文章页底部的「相关文章」链接是
+        <a class="block min-w-0 truncate rounded-xl ... px-4 py-2.5">
+      被改成 inline-flex 之后，宽度变成按内容撑开（420px），
+      truncate 的 overflow:hidden 失去约束对象，整页在 320px 屏上
+      **横向溢出 139px**。
+
+      也就是说：一个为了无障碍加的规则，破坏了窄屏布局。
+
+      修法是显式排除那些自己管 display 的 class。这样：
+        · 真正的 chip（没有 display 类的）→ 仍然被撑到 44px
+        · 显式写了 block / flex / grid 的 → 尊重它们自己的设定
+  */
+  a.inline-flex,
+  button.inline-flex,
+  a[class*="rounded"][class*="py-"]:not(.block):not(.flex):not(.grid):not(.inline-block):not(.table),
+  /* ⚠️ 之前只写了 a，漏了 button —— 后台那些
+     <button class="rounded-xl px-4 py-2"> 全都是 36-38px，没被撑到 44。 */
+  button[class*="rounded"][class*="py-"]:not(.block):not(.flex):not(.grid):not(.inline-block):not(.table) {
+    display: inline-flex;
+    align-items: center;
+    min-height: 2.75rem;   /* 44px */
+  }
+
+  /* 页脚导航在小屏上也会换行排布，间距本来就有 gap，
+     撑到 44px 只是让整块稍微高一点，不会挤在一起。 */
+  /* 页脚所有链接（nav 里的导航 + 那行「管理」） */
+  footer a {
+    display: inline-flex;
+    align-items: center;
+    min-height: 2.75rem;
+  }
+}
+
+/* 说明：正文里的行内文字链接（"查看详情 →"、"源码 →" 这种）
+   故意不撑大 —— WCAG 2.5.8 对「句子里的行内链接」有豁免，
+   而且把行内链接撑成 44px 会明显破坏排版。 */
+
+/* 阅读进度条：短过渡让滚动更顺滑，但别拖沓 */
+#reading-progress { transition: width .1s linear; }
+
+/* @提及的小标签 */
+.mention-chip { cursor: pointer; vertical-align: baseline; }
+.mention-chip:hover { text-decoration: none; }
+
+/* 目录里被高亮的那一项 */
+[data-toc] { text-decoration: none; }
+
+/* 尊重系统的"减少动态效果"设置 */
+@media (prefers-reduced-motion: reduce) {
+  .animate-fade-up { animation: none; }
+  .skill-bar { transition: none; }
+  html { scroll-behavior: auto; }
+  /* 折叠展开的淡入也关掉 */
+  .reply-thread[open] > ul { animation: none; }
+  .reply-summary .chev { transition: none; }
+}

@@ -1,0 +1,15 @@
+{
+  "name": "your-site-build",
+  "private": true,
+  "description": "把 Tailwind 编译成静态 CSS，避免线上依赖第三方 CDN",
+  "scripts": {
+    "css": "tailwindcss -i ./tailwind.input.css -o ../frontend/tailwind.css --minify",
+    "css:watch": "tailwindcss -i ./tailwind.input.css -o ../frontend/tailwind.css --watch",
+    "release": "node release.mjs",
+    "release:check": "node release.mjs --check"
+  },
+  "devDependencies": {
+    "@tailwindcss/cli": "^4.3.3",
+    "tailwindcss": "^4.3.3"
+  }
+}

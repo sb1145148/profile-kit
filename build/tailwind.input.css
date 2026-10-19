@@ -1,0 +1,31 @@
+@import "tailwindcss";
+
+/*
+  Tailwind v4 的 dark: 默认只跟随系统设置。
+  这里改成跟随 <html data-theme="dark">，这样页面上的主题切换按钮才有用。
+  （index.html / admin.html 里的内联脚本会在首屏绘制前把 data-theme 设好）
+*/
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
+
+/*
+  扫描范围：所有会用到的 class 都在这几个文件里。
+  app.js / admin.js 里的 class 写在模板字符串里，Tailwind 也能扫到。
+  ⚠️ 以后新增页面或改了 class 拼法（比如用变量拼 class 名），要回来加上 @source。
+*/
+@source "../frontend/index.html";
+@source "../frontend/admin.html";
+@source "../frontend/articles.html";
+@source "../frontend/about.html";
+@source "../frontend/search.html";
+@source "../frontend/archive.html";
+@source "../frontend/tags.html";
+@source "../frontend/site-map.html";
+@source "../frontend/now.html";
+@source "../frontend/404.html";
+@source "../frontend/core.js";
+@source "../frontend/app.js";
+@source "../frontend/admin.js";
+@source "../frontend/admin-content.js";
+@source "../frontend/admin-system.js";
+@source "../frontend/articles.js";
+@source "../frontend/pages.js";

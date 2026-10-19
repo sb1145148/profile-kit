@@ -1,0 +1,299 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<!--
+  ⚠️ 维护提醒：
+  1) 改完 JS/CSS 要把引用里的 ?v= 数字加一（Pages 给 JS/CSS 设的是 max-age=14400，即 4 小时）
+  2) 改了页面里的 class，要重新编译 Tailwind：cd build && npm run css
+-->
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Demo · 个人主页</title>
+  <link rel="canonical" href="https://example.com/">
+
+<meta name="description" content="Demo 的个人主页 —— 项目、文章、说说、作品集，欢迎来留言。">
+<meta name="author" content="Demo">
+<meta name="theme-color" content="#0f172a">
+
+<meta property="og:site_name" content="Demo">
+  <meta property="og:type" content="website">
+<meta property="og:title" content="Demo · 个人主页">
+<meta property="og:description" content="项目、文章、说说、作品集，欢迎来留言。">
+<meta property="og:image" content="https://example.com/og-image.png">
+<meta property="og:url" content="https://example.com/">
+<meta name="twitter:card" content="summary_large_image">
+
+<link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="manifest" href="manifest.json">
+<link rel="alternate" type="application/rss+xml" title="站点更新" href="https://api.example.com/api/feed.xml">
+
+<!-- 主题必须在首屏绘制前定下来，否则会闪一下 -->
+<script>
+  (function () {
+    try {
+      var d = document.documentElement;
+      // 主题
+      var m = localStorage.getItem('your-site:theme');
+      var dark;
+      if (m === 'light') dark = false;
+      else if (m === 'dark') dark = true;
+      else if (m === 'auto') { var h = d ? new Date().getHours() : 0; dark = (h >= 18 || h < 6); }
+      else dark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+      d.setAttribute('data-theme', dark ? 'dark' : 'light');
+
+      // 背景时段配色（同上，首屏就定好，别等 JS 加载完才变）
+      var hh = new Date().getHours();
+      d.setAttribute('data-daypart',
+        hh >= 6 && hh < 11 ? 'morning' :
+        hh >= 11 && hh < 17 ? 'day' :
+        hh >= 17 && hh < 20 ? 'evening' : 'night');
+    } catch (e) {}
+  })();
+</script>
+
+<link rel="stylesheet" href="tailwind.css?v=a32e601a">
+<link rel="stylesheet" href="style.css?v=6b7054ad">
+</head>
+
+<body class="min-h-screen bg-slate-50 text-slate-800 antialiased dark:bg-slate-950 dark:text-slate-200">
+
+<!-- 背景：极光光晕 + 网格，颜色跟随时段变化 -->
+<div class="bg-layer" aria-hidden="true"></div>
+
+<!-- ==================== 顶部导航 ==================== -->
+<header class="sticky top-0 z-40 border-b border-slate-200 bg-white/85 backdrop-blur dark:border-slate-800 dark:bg-slate-900/85">
+  <div class="mx-auto flex max-w-4xl flex-wrap items-center justify-between gap-3 px-5 py-3">
+    <a href="./" class="inline-flex h-11 shrink-0 items-center text-sm font-semibold">Demo</a>
+
+    <nav id="nav-menu" class="order-last hidden w-full flex flex-wrap items-center justify-start gap-x-4 gap-y-2 border-t border-slate-200 pt-3 text-sm dark:border-slate-800 sm:order-none sm:w-auto sm:flex-1 sm:justify-end sm:border-0 sm:pt-0 sm:flex">
+      <a href="#moments" class="text-slate-500 transition hover:text-slate-900 dark:text-slate-400 dark:hover:text-white">说说</a>
+      <a href="articles" class="text-slate-500 transition hover:text-slate-900 dark:text-slate-400 dark:hover:text-white">文章</a>
+      <a href="#gallery" class="text-slate-500 transition hover:text-slate-900 dark:text-slate-400 dark:hover:text-white">作品</a>
+      <a href="#friends" class="text-slate-500 transition hover:text-slate-900 dark:text-slate-400 dark:hover:text-white">友链</a>
+      <a href="#board"   class="text-slate-500 transition hover:text-slate-900 dark:text-slate-400 dark:hover:text-white">留言</a>
+      <a href="changelog"    class="text-slate-500 transition hover:text-slate-900 dark:text-slate-400 dark:hover:text-white">更新日志</a>
+      <a href="about"    class="text-slate-500 transition hover:text-slate-900 dark:text-slate-400 dark:hover:text-white">关于</a>
+    </nav>
+
+    <div class="flex shrink-0 items-center gap-2">
+      <a href="search" aria-label="搜索"
+         class="inline-flex h-11 w-11 items-center justify-center rounded-lg border border-slate-300 text-sm transition hover:bg-slate-100 dark:border-slate-700 dark:hover:bg-slate-800">🔍</a>
+      <button id="theme-toggle" type="button" aria-label="切换深色模式"
+              class="inline-flex h-11 w-11 items-center justify-center rounded-lg border border-slate-300 text-sm transition hover:bg-slate-100 dark:border-slate-700 dark:hover:bg-slate-800">
+        <span id="theme-icon">🌙</span>
+      </button>
+      <button id="nav-toggle" type="button" aria-label="展开菜单"
+              class="inline-flex h-11 w-11 items-center justify-center rounded-lg border border-slate-300 text-sm transition hover:bg-slate-100 sm:hidden dark:border-slate-700 dark:hover:bg-slate-800">☰</button>
+    </div>
+  </div>
+</header>
+
+<main class="mx-auto max-w-4xl px-5 py-10">
+
+  <!-- ==================== 资料卡 ==================== -->
+  <section class="rounded-3xl border border-slate-200 bg-white p-6 shadow-md dark:border-slate-800 dark:bg-slate-900">
+    <div class="flex flex-wrap items-center gap-5">
+      <img id="profile-avatar" src="" alt="头像"
+           class="h-20 w-20 shrink-0 rounded-full bg-slate-100 object-cover dark:bg-slate-800">
+      <div class="min-w-0 flex-1">
+        <h1 id="profile-name" class="text-2xl font-bold"></h1>
+        <p id="profile-tagline" class="mt-1 text-sm text-slate-500 dark:text-slate-400"></p>
+        <p id="profile-bio" class="mt-2 text-sm leading-relaxed text-slate-600 dark:text-slate-300"></p>
+      </div>
+    </div>
+    <div id="contacts" class="mt-5 flex flex-wrap gap-2"></div>
+  </section>
+
+  <!-- ==================== 技能 ==================== -->
+  <section id="skills" class="mt-10 scroll-mt-20">
+    <h2 class="mb-3 text-lg font-semibold">技能</h2>
+    <div id="skills-list" class="flex flex-wrap gap-2"></div>
+  </section>
+
+  <!-- ==================== 项目经历 ==================== -->
+  <section class="mt-10">
+    <h2 class="mb-3 text-lg font-semibold">项目经历</h2>
+    <div id="projects-list" class="grid gap-4 sm:grid-cols-2"></div>
+  </section>
+
+  <!-- ==================== 说说 ==================== -->
+  <section id="moments" class="mt-12 scroll-mt-20">
+    <h2 class="mb-3 flex items-baseline gap-2 text-lg font-semibold">
+      说说
+      <span id="posts-count" class="text-sm font-normal text-slate-500 dark:text-slate-400"></span>
+    </h2>
+    <p id="posts-loading" class="text-sm text-slate-500 dark:text-slate-400">加载中…</p>
+    <p id="posts-empty" class="hidden text-sm text-slate-500 dark:text-slate-400">还没有动态。</p>
+    <ul id="posts-list" class="grid gap-3"></ul>
+
+    <!-- 说说多了之后默认只露前几条，其余折叠 -->
+    <button type="button" id="posts-toggle" hidden
+            class="mt-3 w-full rounded-xl border border-slate-300 py-2 text-sm font-medium text-slate-500 transition hover:border-blue-400 hover:text-blue-600 dark:border-slate-700 dark:text-slate-400 dark:hover:border-blue-500 dark:hover:text-blue-400">
+      展开全部
+    </button>
+  </section>
+
+  <!-- ==================== 歌单 ==================== -->
+  <section id="music" class="mt-12 scroll-mt-20">
+    <h2 class="mb-2 flex items-center gap-2 text-lg font-semibold">
+      歌单
+      <span class="text-sm font-normal text-slate-500 dark:text-slate-400">点右侧按钮去 B站听</span>
+    </h2>
+    <div id="playlist" class="grid gap-2">
+      <p class="text-sm text-slate-500 dark:text-slate-400">加载中…</p>
+    </div>
+  </section>
+
+  <!-- ==================== 作品集 ==================== -->
+  <section id="gallery" class="mt-12 scroll-mt-20">
+    <h2 class="mb-2 flex items-center gap-2 text-lg font-semibold">
+      作品集
+      <span id="gallery-count" class="text-sm font-normal text-slate-500 dark:text-slate-400"></span>
+    </h2>
+    <p id="gallery-empty" class="hidden text-sm text-slate-500 dark:text-slate-400">还没有作品，等我慢慢攒。</p>
+    <div id="gallery-grid" class="grid grid-cols-2 gap-3 sm:grid-cols-3"></div>
+  </section>
+
+  <!-- ==================== 友链 ==================== -->
+  <section id="friends" class="mt-12 scroll-mt-20">
+    <h2 class="mb-3 text-lg font-semibold">友链</h2>
+    <p id="friends-empty" class="hidden text-sm text-slate-500 dark:text-slate-400">还没有友链，欢迎来换。</p>
+    <div id="friends-grid" class="grid gap-3 sm:grid-cols-2"></div>
+
+    <details class="mt-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-md dark:border-slate-800 dark:bg-slate-900">
+      <summary class="cursor-pointer text-sm font-medium">想和我换友链？点这里申请</summary>
+      <form id="friend-form" class="mt-4 grid gap-3 sm:grid-cols-2">
+        <div>
+          <label for="friend-name" class="mb-1 block text-sm font-medium">站点名称 <span class="text-red-500">*</span></label>
+          <input id="friend-name" type="text" required maxlength="30" placeholder="你的站名"
+                 class="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm outline-hidden transition focus:border-blue-500 focus:ring-2 focus:ring-blue-500/30 dark:border-slate-700 dark:bg-slate-950">
+        </div>
+        <div>
+          <label for="friend-url" class="mb-1 block text-sm font-medium">网址 <span class="text-red-500">*</span></label>
+          <input id="friend-url" type="url" required placeholder="https://example.com"
+                 class="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm outline-hidden transition focus:border-blue-500 focus:ring-2 focus:ring-blue-500/30 dark:border-slate-700 dark:bg-slate-950">
+        </div>
+        <div>
+          <label for="friend-avatar" class="mb-1 block text-sm font-medium">头像地址（可留空）</label>
+          <input id="friend-avatar" type="url" placeholder="https://example.com/avatar.png"
+                 class="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm outline-hidden transition focus:border-blue-500 focus:ring-2 focus:ring-blue-500/30 dark:border-slate-700 dark:bg-slate-950">
+        </div>
+        <div>
+          <label for="friend-desc" class="mb-1 block text-sm font-medium">一句话简介</label>
+          <input id="friend-desc" type="text" maxlength="80" placeholder="随便写点"
+                 class="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm outline-hidden transition focus:border-blue-500 focus:ring-2 focus:ring-blue-500/30 dark:border-slate-700 dark:bg-slate-950">
+        </div>
+        <div class="sm:col-span-2">
+          <!-- 人机校验（友链申请也是公开写接口，同样要拦） -->
+          <div id="turnstile-friend" class="hidden sm:col-span-2"></div>
+
+          <button id="friend-submit" type="submit"
+                  class="inline-flex min-h-11 items-center justify-center rounded-xl bg-blue-600 px-5 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:opacity-60">
+            提交申请
+          </button>
+          <p id="friend-status" class="mt-3 min-h-5 text-sm" role="status" aria-live="polite"></p>
+        </div>
+      </form>
+    </details>
+  </section>
+
+  <!-- ==================== GitHub ==================== -->
+  <section id="github-section" class="mt-12 scroll-mt-20">
+    <h2 class="mb-3 text-lg font-semibold">GitHub</h2>
+    <div id="github-card" class="rounded-2xl border border-slate-200 bg-white p-5 shadow-md dark:border-slate-800 dark:bg-slate-900">
+      <p class="text-sm text-slate-500 dark:text-slate-400">加载中…</p>
+    </div>
+  </section>
+
+  <!-- ==================== 留言板 ==================== -->
+  <section id="board" class="mt-12 scroll-mt-20">
+    <h2 class="mb-3 flex items-baseline gap-2 text-lg font-semibold">
+      留言板
+      <span id="message-count" class="text-sm font-normal text-slate-500 dark:text-slate-400"></span>
+    </h2>
+
+    <form id="message-form" class="rounded-2xl border border-slate-200 bg-white p-5 shadow-md dark:border-slate-800 dark:bg-slate-900">
+      <label for="msg-name" class="mb-1 block text-sm font-medium">昵称</label>
+      <input id="msg-name" name="name" type="text" required maxlength="20" placeholder="怎么称呼你？"
+             class="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm outline-hidden transition focus:border-blue-500 focus:ring-2 focus:ring-blue-500/30 dark:border-slate-700 dark:bg-slate-950">
+
+      <label for="msg-content" class="mt-4 mb-1 block text-sm font-medium">留言内容</label>
+      <textarea id="msg-content" name="content" rows="4" required maxlength="500" placeholder="说点什么吧…（最多 500 字）"
+                class="w-full resize-y rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm outline-hidden transition focus:border-blue-500 focus:ring-2 focus:ring-blue-500/30 dark:border-slate-700 dark:bg-slate-950"></textarea>
+      <!-- Markdown 提示。用户不会自己想到「这里能用语法」——
+           没有这句话，这个功能等于不存在。 -->
+      <p class="mt-1.5 text-xs text-slate-500 dark:text-slate-400">
+        支持 Markdown：
+        <code class="rounded bg-slate-100 px-1 py-0.5 text-[11px] dark:bg-slate-800">**粗体**</code>
+        <code class="rounded bg-slate-100 px-1 py-0.5 text-[11px] dark:bg-slate-800">*斜体*</code>
+        <code class="rounded bg-slate-100 px-1 py-0.5 text-[11px] dark:bg-slate-800">~~删除~~</code>
+        <code class="rounded bg-slate-100 px-1 py-0.5 text-[11px] dark:bg-slate-800">`代码`</code>
+        <code class="rounded bg-slate-100 px-1 py-0.5 text-[11px] dark:bg-slate-800">[文字](链接)</code>
+        <code class="rounded bg-slate-100 px-1 py-0.5 text-[11px] dark:bg-slate-800">- 列表</code>
+        <code class="rounded bg-slate-100 px-1 py-0.5 text-[11px] dark:bg-slate-800">&gt; 引用</code>
+        ，以及 <code class="rounded bg-slate-100 px-1 py-0.5 text-[11px] dark:bg-slate-800">@昵称</code> 提及
+      </p>
+
+      <label for="msg-image" class="mt-4 mb-1 block text-sm font-medium">配图（可选）</label>
+      <input id="msg-image" name="image" type="file" accept="image/jpeg,image/png,image/gif,image/webp"
+             class="block w-full cursor-pointer rounded-xl border border-slate-300 bg-white text-sm text-slate-500 file:mr-3 file:cursor-pointer file:border-0 file:bg-slate-100 file:px-3 file:py-2 file:text-sm file:font-medium file:text-slate-700 hover:file:bg-slate-200 dark:border-slate-700 dark:bg-slate-950 dark:file:bg-slate-800 dark:file:text-slate-200">
+      <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">支持 JPG / PNG / GIF / WebP，大图会自动压缩；压缩后不超过 1 MB</p>
+      <div id="image-preview" class="mt-2 hidden"></div>
+
+      <!-- 人机校验。默认 hidden，只有配了 sitekey 才由 JS 显示出来 -->
+      <div id="turnstile-msg" class="mt-3 hidden"></div>
+
+      <button id="submit-btn" type="submit"
+              class="mt-4 inline-flex min-h-11 items-center justify-center rounded-xl bg-blue-600 px-5 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60">
+        发表留言
+      </button>
+      <p id="form-status" class="mt-3 min-h-5 text-sm" role="status" aria-live="polite"></p>
+    </form>
+
+    <div class="mt-5">
+      <p id="messages-loading" class="text-sm text-slate-500 dark:text-slate-400">留言加载中…</p>
+      <p id="messages-empty"   class="hidden text-sm text-slate-500 dark:text-slate-400">还没有人留言，来做第一个吧～</p>
+      <p id="messages-error"   class="hidden text-sm text-red-500"></p>
+      <ul id="messages-list" class="grid gap-3"></ul>
+      <div id="pagination" class="mt-5 hidden flex-wrap items-center justify-center gap-2"></div>
+    </div>
+  </section>
+
+</main>
+
+<footer class="border-t border-slate-200 py-8 dark:border-slate-800">
+  <div class="mx-auto max-w-4xl px-5 text-center text-xs text-slate-500 dark:text-slate-400">
+    <nav class="mb-3 flex flex-wrap justify-center gap-x-4 gap-y-2">
+      <a href="./"        class="transition hover:text-blue-500">首页</a>
+      <a href="articles"  class="transition hover:text-blue-500">文章</a>
+      <a href="archive"   class="transition hover:text-blue-500">归档</a>
+      <a href="tags"      class="transition hover:text-blue-500">标签</a>
+      <a href="about"     class="transition hover:text-blue-500">关于</a>
+      <a href="changelog" class="transition hover:text-blue-500">更新日志</a>
+      <a href="now"       class="transition hover:text-blue-500">Now</a>
+      <a href="site-map"  class="transition hover:text-blue-500">网站地图</a>
+      <a href="https://api.example.com/api/feed.xml" class="transition hover:text-blue-500">RSS</a>
+    </nav>
+    <p>© 2026 Demo
+      <span class="mx-2 text-slate-300 dark:text-slate-700">|</span>
+      总访问量 <span id="visit-count" class="font-mono">--</span> 次
+      <span class="mx-2 text-slate-300 dark:text-slate-700">|</span>
+      <a href="admin" class="transition hover:text-blue-500">管理</a>
+    </p>
+  </div>
+</footer>
+
+<!-- 图片灯箱 -->
+<div id="lightbox" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/85 p-4 backdrop-blur-sm">
+  <img id="lightbox-img" alt="原图" class="max-h-full max-w-full rounded-xl object-contain shadow-2xl">
+  <button id="lightbox-close" type="button" aria-label="关闭"
+          class="absolute right-4 top-4 rounded-full bg-white/15 px-3.5 py-2 text-lg text-white transition hover:bg-white/25">✕</button>
+  <p class="pointer-events-none absolute bottom-4 left-1/2 -translate-x-1/2 text-xs text-white/60">点击空白处或按 Esc 关闭</p>
+</div>
+  <script src="media.js?v=146f46d9" defer></script>
+
+<script src="core.js?v=f1015ee3" defer></script>
+<script src="app.js?v=098a60ce" defer></script>
+</body>
+</html>

@@ -1,0 +1,10 @@
+# 所有爬虫都可以抓
+User-agent: *
+Allow: /
+
+# 后台和接口不需要收录
+Disallow: /admin
+Disallow: /api/
+
+# 动态生成的 sitemap（含所有文章）
+Sitemap: https://example.com/sitemap.xml

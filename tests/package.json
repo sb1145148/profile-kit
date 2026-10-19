@@ -1,0 +1,19 @@
+{
+  "name": "your-site-tests",
+  "version": "1.0.0",
+  "private": true,
+  "description": "your-site 的端到端测试：本地起一个模拟 D1 的服务器，用 Playwright 跑真实浏览器",
+  "type": "commonjs",
+  "scripts": {
+    "serve": "node profile-server.mjs",
+    "test": "node run-all.mjs",
+    "test:main": "node profile-e2e.js && node upload-test.js && node admin-test.js",
+    "test:features": "node features-test.js && node features2-test.js && node features3-test.js && node features4-test.js && node features5-test.js && node features6-test.js"
+  },
+  "devDependencies": {
+    "playwright": "^1.49.0"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}

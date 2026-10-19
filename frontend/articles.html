@@ -1,0 +1,171 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<!-- ⚠️ 改完 JS 要把 ?v= 加一；改了 class 要跑 cd build && npm run css -->
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>文章 · Demo</title>
+  <link rel="canonical" href="https://example.com/articles">
+<meta name="description" content="Demo 的文章和笔记。">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="Demo">
+  <meta property="og:title" content="文章 · Demo">
+  <meta property="og:description" content="Demo 的文章和笔记。">
+  <meta property="og:image" content="https://example.com/og-image.png">
+  <meta property="og:url" content="https://example.com/articles">
+  <meta name="twitter:card" content="summary_large_image">
+<meta name="theme-color" content="#0f172a">
+<link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="manifest" href="manifest.json">
+<link rel="alternate" type="application/rss+xml" title="文章订阅" href="https://api.example.com/api/feed.xml?type=articles">
+<script>
+  (function () {
+    try {
+      var d = document.documentElement;
+      // 主题
+      var m = localStorage.getItem('your-site:theme');
+      var dark;
+      if (m === 'light') dark = false;
+      else if (m === 'dark') dark = true;
+      else if (m === 'auto') { var h = d ? new Date().getHours() : 0; dark = (h >= 18 || h < 6); }
+      else dark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+      d.setAttribute('data-theme', dark ? 'dark' : 'light');
+
+      // 背景时段配色（同上，首屏就定好，别等 JS 加载完才变）
+      var hh = new Date().getHours();
+      d.setAttribute('data-daypart',
+        hh >= 6 && hh < 11 ? 'morning' :
+        hh >= 11 && hh < 17 ? 'day' :
+        hh >= 17 && hh < 20 ? 'evening' : 'night');
+    } catch (e) {}
+  })();
+</script>
+<link rel="stylesheet" href="tailwind.css?v=a32e601a">
+<link rel="stylesheet" href="style.css?v=6b7054ad">
+</head>
+
+<body class="min-h-screen bg-slate-50 text-slate-800 antialiased dark:bg-slate-950 dark:text-slate-200">
+
+<!-- 背景：极光光晕 + 网格，颜色跟随时段变化 -->
+<div class="bg-layer" aria-hidden="true"></div>
+
+<!-- 阅读进度条：只在文章详情页显示 -->
+<div id="reading-progress" class="fixed left-0 top-0 z-50 hidden h-0.5 w-0 bg-blue-500"></div>
+
+<header class="sticky top-0 z-40 border-b border-slate-200 bg-white/85 backdrop-blur dark:border-slate-800 dark:bg-slate-900/85">
+  <div class="mx-auto flex max-w-4xl flex-wrap items-center justify-between gap-3 px-5 py-3">
+    <a href="./" class="inline-flex h-11 shrink-0 items-center text-sm font-semibold">Demo</a>
+    <nav id="nav-menu" class="order-last hidden w-full flex flex-wrap items-center justify-start gap-x-4 gap-y-2 border-t border-slate-200 pt-3 text-sm dark:border-slate-800 sm:order-none sm:w-auto sm:flex-1 sm:justify-end sm:border-0 sm:pt-0 sm:flex">
+      <a href="./"      class="text-slate-500 transition hover:text-slate-900 dark:text-slate-400 dark:hover:text-white">首页</a>
+      <a href="articles" class="font-medium text-blue-600 dark:text-blue-400">文章</a>
+      <a href="changelog"   class="text-slate-500 transition hover:text-slate-900 dark:text-slate-400 dark:hover:text-white">更新日志</a>
+      <a href="about"   class="text-slate-500 transition hover:text-slate-900 dark:text-slate-400 dark:hover:text-white">关于</a>
+    </nav>
+    <div class="flex shrink-0 items-center gap-2">
+      <a href="search" aria-label="搜索"
+         class="inline-flex h-11 w-11 items-center justify-center rounded-lg border border-slate-300 text-sm transition hover:bg-slate-100 dark:border-slate-700 dark:hover:bg-slate-800">🔍</a>
+      <button id="theme-toggle" type="button" aria-label="切换深色模式"
+              class="inline-flex h-11 w-11 items-center justify-center rounded-lg border border-slate-300 text-sm transition hover:bg-slate-100 dark:border-slate-700 dark:hover:bg-slate-800">
+        <span id="theme-icon">🌙</span>
+      </button>
+      <button id="nav-toggle" type="button" aria-label="展开菜单"
+              class="inline-flex h-11 w-11 items-center justify-center rounded-lg border border-slate-300 text-sm transition hover:bg-slate-100 sm:hidden dark:border-slate-700 dark:hover:bg-slate-800">☰</button>
+    </div>
+  </div>
+</header>
+
+<main class="mx-auto max-w-4xl px-5 py-10">
+
+  <!-- ==================== 列表视图 ==================== -->
+  <section id="list-view">
+    <h1 class="text-2xl font-bold">文章</h1>
+    <p id="list-tags" class="mt-3 flex flex-wrap gap-2"></p>
+    <p id="list-loading" class="mt-5 text-sm text-slate-500 dark:text-slate-400">加载中…</p>
+    <p id="list-empty" class="mt-5 hidden text-sm text-slate-500 dark:text-slate-400">还没有文章。</p>
+    <ul id="article-list" class="mt-5 grid gap-3"></ul>
+    <div id="list-pagination" class="mt-6 hidden flex-wrap items-center justify-center gap-2"></div>
+  </section>
+
+  <!-- ==================== 详情视图 ==================== -->
+  <section id="detail-view" class="hidden">
+    <a href="articles" class="text-sm text-slate-500 transition hover:text-blue-500 dark:text-slate-400">← 返回文章列表</a>
+    <h1 id="article-title" class="mt-5 break-words text-3xl font-bold leading-snug"></h1>
+    <div class="mt-3 flex flex-wrap items-center gap-3 text-xs text-slate-500 dark:text-slate-400">
+      <span id="article-date"></span>
+      <span id="article-views"></span>
+    </div>
+    <div id="article-tags" class="mt-3 flex flex-wrap gap-2"></div>
+
+    <!-- 封面（没设封面时由 JS 隐藏） -->
+    <img id="article-cover" src="" alt="" class="mt-6 hidden w-full rounded-2xl border border-slate-200 object-cover dark:border-slate-800">
+
+    <!-- 移动端的目录：折叠起来，不占地方 -->
+    <details id="toc-mobile" class="mt-6 hidden rounded-2xl border border-slate-200 bg-white p-4 lg:hidden dark:border-slate-800 dark:bg-slate-900">
+      <summary class="cursor-pointer text-sm font-medium">📑 本文目录</summary>
+      <nav id="toc-mobile-nav" class="mt-3 grid gap-1.5 text-sm"></nav>
+    </details>
+
+    <div class="mt-8 lg:grid lg:grid-cols-[minmax(0,1fr)_190px] lg:gap-10">
+      <article id="article-body" class="prose-custom min-w-0"></article>
+      <!-- 桌面端的目录：粘在右侧 -->
+      <aside class="hidden lg:block">
+        <nav id="toc-desktop" class="sticky top-24 max-h-[70vh] overflow-y-auto border-l border-slate-200 pl-4 text-sm dark:border-slate-800"></nav>
+      </aside>
+    </div>
+
+    <!-- 分享 -->
+    <div class="mt-10 flex flex-wrap items-center gap-2 border-t border-slate-200 pt-6 dark:border-slate-800">
+      <span class="text-sm text-slate-500 dark:text-slate-400">分享：</span>
+      <button type="button" id="share-copy"
+              class="rounded-xl border border-slate-300 px-3.5 py-1.5 text-sm transition hover:bg-slate-50 dark:border-slate-700 dark:hover:bg-slate-800">🔗 复制链接</button>
+      <a id="share-weibo" target="_blank" rel="noopener noreferrer"
+         class="rounded-xl border border-slate-300 px-3.5 py-1.5 text-sm transition hover:bg-slate-50 dark:border-slate-700 dark:hover:bg-slate-800">📤 分享到微博</a>
+      <button type="button" id="share-native" hidden
+              class="rounded-xl border border-slate-300 px-3.5 py-1.5 text-sm transition hover:bg-slate-50 dark:border-slate-700 dark:hover:bg-slate-800">📱 更多</button>
+      <span id="share-status" class="text-xs text-slate-500 dark:text-slate-400"></span>
+    </div>
+
+    <nav class="mt-12 grid gap-3 border-t border-slate-200 pt-6 sm:grid-cols-2 dark:border-slate-800">
+      <a id="article-prev" class="hidden rounded-2xl border border-slate-200 bg-white p-4 text-sm transition hover:border-blue-400 dark:border-slate-800 dark:bg-slate-900 dark:hover:border-blue-500"></a>
+      <a id="article-next" class="hidden rounded-2xl border border-slate-200 bg-white p-4 text-right text-sm transition hover:border-blue-400 sm:col-start-2 dark:border-slate-800 dark:bg-slate-900 dark:hover:border-blue-500"></a>
+    </nav>
+
+    <div id="article-related" class="mt-8"></div>
+  </section>
+
+  <p id="detail-error" class="hidden text-sm text-red-500"></p>
+</main>
+
+<footer class="border-t border-slate-200 py-8 dark:border-slate-800">
+  <div class="mx-auto max-w-4xl px-5 text-center text-xs text-slate-500 dark:text-slate-400">
+    <nav class="mb-3 flex flex-wrap justify-center gap-x-4 gap-y-2">
+      <a href="./"        class="transition hover:text-blue-500">首页</a>
+      <a href="articles"  class="transition hover:text-blue-500">文章</a>
+      <a href="archive"   class="transition hover:text-blue-500">归档</a>
+      <a href="tags"      class="transition hover:text-blue-500">标签</a>
+      <a href="about"     class="transition hover:text-blue-500">关于</a>
+      <a href="changelog" class="transition hover:text-blue-500">更新日志</a>
+      <a href="now"       class="transition hover:text-blue-500">Now</a>
+      <a href="site-map"  class="transition hover:text-blue-500">网站地图</a>
+      <a href="https://api.example.com/api/feed.xml" class="transition hover:text-blue-500">RSS</a>
+    </nav>
+    <p>© 2026 Demo
+      <span class="mx-2 text-slate-300 dark:text-slate-700">|</span>
+      总访问量 <span id="visit-count" class="font-mono">--</span> 次
+      <span class="mx-2 text-slate-300 dark:text-slate-700">|</span>
+      <a href="admin" class="transition hover:text-blue-500">管理</a>
+    </p>
+  </div>
+</footer>
+
+<div id="lightbox" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/85 p-4 backdrop-blur-sm">
+  <img id="lightbox-img" alt="原图" class="max-h-full max-w-full rounded-xl object-contain shadow-2xl">
+  <button id="lightbox-close" type="button" aria-label="关闭"
+          class="absolute right-4 top-4 rounded-full bg-white/15 px-3.5 py-2 text-lg text-white transition hover:bg-white/25">✕</button>
+</div>
+
+<script src="core.js?v=f1015ee3" defer></script>
+<script src="articles.js?v=f87093f3" defer></script>
+</body>
+</html>

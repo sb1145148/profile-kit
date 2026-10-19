@@ -1,0 +1,680 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<!--
+  ⚠️ 维护提醒：改完 admin.js / admin-content.js / admin-system.js / style.css / app.js 之后，
+     要把引用里的 ?v= 数字加一（Pages 给 JS/CSS 设的是 max-age=14400，即 4 小时）。
+     改了 HTML 里的 class 还要重新编译 Tailwind：cd build && npm run css
+-->
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>管理后台</title>
+<meta name="robots" content="noindex, nofollow, noarchive">
+<link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<script>
+  (function () {
+    try {
+      var d = document.documentElement;
+      // 主题
+      var m = localStorage.getItem('your-site:theme');
+      var dark;
+      if (m === 'light') dark = false;
+      else if (m === 'dark') dark = true;
+      else if (m === 'auto') { var h = d ? new Date().getHours() : 0; dark = (h >= 18 || h < 6); }
+      else dark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+      d.setAttribute('data-theme', dark ? 'dark' : 'light');
+
+      // 背景时段配色（同上，首屏就定好，别等 JS 加载完才变）
+      var hh = new Date().getHours();
+      d.setAttribute('data-daypart',
+        hh >= 6 && hh < 11 ? 'morning' :
+        hh >= 11 && hh < 17 ? 'day' :
+        hh >= 17 && hh < 20 ? 'evening' : 'night');
+    } catch (e) {}
+  })();
+</script>
+<link rel="stylesheet" href="tailwind.css?v=a32e601a">
+<link rel="stylesheet" href="style.css?v=6b7054ad">
+</head>
+
+<body class="min-h-screen bg-slate-100 text-slate-800 antialiased dark:bg-slate-950 dark:text-slate-200">
+
+<!-- 背景：极光光晕 + 网格，颜色跟随时段变化 -->
+<div class="bg-layer" aria-hidden="true"></div>
+
+<header class="sticky top-0 z-40 border-b border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
+  <div class="mx-auto flex max-w-6xl items-center justify-between px-5 py-3">
+    <h1 class="text-sm font-semibold">🔧 管理后台</h1>
+    <div class="flex items-center gap-3 text-sm">
+      <button id="theme-toggle" type="button" aria-label="切换深色模式"
+              class="inline-flex h-11 w-11 items-center justify-center rounded-lg border border-slate-300 text-sm transition hover:bg-slate-100 dark:border-slate-700 dark:hover:bg-slate-800">
+        <span id="theme-icon">🌙</span>
+      </button>
+      <a href="./" class="text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white">← 返回首页</a>
+      <button id="logout-btn" type="button" hidden
+              class="rounded-lg border border-slate-300 px-3 py-1 text-slate-600 transition hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800">
+        退出登录
+      </button>
+    </div>
+  </div>
+</header>
+
+<main class="mx-auto max-w-6xl px-5 py-8">
+
+  <!-- ==================== 登录 ==================== -->
+  <section id="login-view" class="mx-auto max-w-sm">
+    <form id="login-form" class="rounded-2xl border border-slate-200 bg-white p-6 shadow-md dark:border-slate-800 dark:bg-slate-900">
+      <h2 class="text-lg font-semibold">请输入管理密码</h2>
+      <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">连续输错 5 次会锁定 15 分钟</p>
+
+      <label for="password" class="mt-5 block text-sm font-medium text-slate-600 dark:text-slate-300">密码</label>
+      <input id="password" type="password" autocomplete="current-password" required placeholder="••••••••"
+             class="mt-1 w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm outline-hidden transition focus:border-blue-500 focus:ring-2 focus:ring-blue-500/30 dark:border-slate-700 dark:bg-slate-950">
+
+      <button id="login-btn" type="submit"
+              class="mt-4 w-full rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60">
+        登录
+      </button>
+      <p id="login-status" class="mt-3 min-h-5 text-sm" role="status" aria-live="polite"></p>
+    </form>
+  </section>
+
+  <!-- ==================== 后台 ==================== -->
+  <section id="admin-view" hidden>
+
+    <!-- 概览 -->
+    <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-md dark:border-slate-800 dark:bg-slate-900">
+        <p class="text-sm text-slate-500 dark:text-slate-400">留言</p>
+        <p id="stat-messages" class="mt-1 font-mono text-3xl font-bold tabular-nums">--</p>
+        <p id="stat-replied" class="text-xs text-slate-500 dark:text-slate-400"></p>
+      </div>
+      <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-md dark:border-slate-800 dark:bg-slate-900">
+        <p class="text-sm text-slate-500 dark:text-slate-400">待处理</p>
+        <p id="stat-pending" class="mt-1 font-mono text-3xl font-bold tabular-nums">--</p>
+        <p id="stat-pending-detail" class="text-xs text-slate-500 dark:text-slate-400"></p>
+      </div>
+      <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-md dark:border-slate-800 dark:bg-slate-900">
+        <p class="text-sm text-slate-500 dark:text-slate-400">内容</p>
+        <p id="stat-content" class="mt-1 font-mono text-3xl font-bold tabular-nums">--</p>
+        <p id="stat-content-detail" class="text-xs text-slate-500 dark:text-slate-400"></p>
+        <p id="stat-images-size" class="mt-0.5 text-xs text-slate-500 dark:text-slate-400"></p>
+      </div>
+      <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-md dark:border-slate-800 dark:bg-slate-900">
+        <p class="text-sm text-slate-500 dark:text-slate-400">总访问量</p>
+        <p id="stat-visits" class="mt-1 font-mono text-3xl font-bold tabular-nums">--</p>
+        <p id="stat-expire" class="text-xs text-slate-500 dark:text-slate-400"></p>
+      </div>
+    </div>
+
+    <p id="admin-status" class="mt-4 min-h-5 text-sm" role="status" aria-live="polite"></p>
+
+    <!-- 工具栏 -->
+    <div class="mt-6 flex flex-wrap gap-2">
+      <button id="refresh-btn" type="button"
+              class="rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-medium transition hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:hover:bg-slate-800">🔄 全部刷新</button>
+      <button id="reset-visits-btn" type="button"
+              class="rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-medium transition hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:hover:bg-slate-800">♻️ 访问量归零</button>
+      <button id="clear-all-btn" type="button"
+              class="rounded-xl border border-red-300 bg-white px-4 py-2 text-sm font-medium text-red-600 transition hover:bg-red-50 dark:border-red-800 dark:bg-slate-900 dark:text-red-400 dark:hover:bg-red-950">🗑️ 清空全部留言</button>
+    </div>
+
+    <!-- ============================================================
+         留言管理
+         ============================================================ -->
+    <section class="mt-8 rounded-2xl border border-slate-200 bg-white p-5 shadow-md dark:border-slate-800 dark:bg-slate-900">
+      <h2 class="mb-3 text-lg font-semibold">留言管理</h2>
+
+      <div class="mb-3 flex flex-wrap items-center gap-2">
+        <input id="search-input" type="search" placeholder="搜索昵称 / 内容 / 回复…" maxlength="50"
+               class="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm outline-hidden transition focus:border-blue-500 dark:border-slate-700 dark:bg-slate-950 sm:w-64">
+        <button id="search-btn" type="button" class="rounded-xl bg-blue-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-blue-700">搜索</button>
+        <button id="search-clear" type="button" class="rounded-xl border border-slate-300 px-3 py-2 text-sm transition hover:bg-slate-50 dark:border-slate-700 dark:hover:bg-slate-800">清空</button>
+        <span class="mx-1 hidden text-slate-300 sm:inline dark:text-slate-700">|</span>
+        <button id="export-json" type="button" class="rounded-xl border border-slate-300 px-3 py-2 text-sm transition hover:bg-slate-50 dark:border-slate-700 dark:hover:bg-slate-800">⬇️ JSON</button>
+        <button id="export-csv" type="button" class="rounded-xl border border-slate-300 px-3 py-2 text-sm transition hover:bg-slate-50 dark:border-slate-700 dark:hover:bg-slate-800">⬇️ CSV</button>
+      </div>
+
+      <div class="mb-3 flex flex-wrap gap-2">
+        <button data-filter="all"      class="filter-btn rounded-xl border border-slate-300 px-4 py-1.5 text-sm font-medium dark:border-slate-700">全部</button>
+        <button data-filter="pending"  class="filter-btn rounded-xl border border-slate-300 px-4 py-1.5 text-sm font-medium dark:border-slate-700">⏳ 待审核</button>
+        <button data-filter="approved" class="filter-btn rounded-xl border border-slate-300 px-4 py-1.5 text-sm font-medium dark:border-slate-700">✅ 已通过</button>
+      </div>
+
+      <!-- 批量操作条：有勾选时才亮起来 -->
+      <div id="batch-bar" class="mb-3 flex flex-wrap items-center gap-2 rounded-xl border border-blue-200 bg-blue-50 px-3 py-2 dark:border-blue-900 dark:bg-blue-950/40">
+        <label class="flex cursor-pointer items-center gap-2 text-sm">
+          <input id="select-all" type="checkbox" class="h-4 w-4 accent-blue-600">
+          全选本页
+        </label>
+        <span id="batch-count" class="text-sm text-slate-500 dark:text-slate-400">未选中</span>
+        <span class="mx-1 text-slate-300 dark:text-slate-700">|</span>
+        <button type="button" data-batch="approve"
+                class="rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white transition hover:bg-emerald-700 disabled:opacity-40">批量通过</button>
+        <button type="button" data-batch="unapprove"
+                class="rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-medium transition hover:bg-white disabled:opacity-40 dark:border-slate-600 dark:hover:bg-slate-800">批量撤下</button>
+        <button type="button" data-batch="delete"
+                class="rounded-lg border border-red-300 px-3 py-1.5 text-xs font-medium text-red-600 transition hover:bg-red-50 disabled:opacity-40 dark:border-red-800 dark:text-red-400 dark:hover:bg-red-950">批量删除</button>
+      </div>
+
+      <p id="list-loading" class="text-sm text-slate-500 dark:text-slate-400">加载中…</p>
+      <p id="list-empty" class="hidden text-sm text-slate-500 dark:text-slate-400">没有符合条件的留言。</p>
+      <ul id="admin-messages" class="grid gap-3"></ul>
+      <div id="admin-pagination" class="mt-5 hidden flex-wrap items-center justify-center gap-2"></div>
+    </section>
+
+    <!-- ============================================================
+         说说管理
+         ============================================================ -->
+    <section class="mt-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-md dark:border-slate-800 dark:bg-slate-900">
+      <h2 class="mb-3 text-lg font-semibold">说说</h2>
+
+      <form id="post-form" class="grid gap-3">
+        <textarea id="post-content" rows="3" maxlength="500" required placeholder="今天想说点什么…"
+                  class="w-full resize-y rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm outline-hidden transition focus:border-blue-500 dark:border-slate-700 dark:bg-slate-950"></textarea>
+        <div class="flex flex-wrap items-center gap-3">
+          <input id="post-image" type="file" accept="image/jpeg,image/png,image/gif,image/webp"
+                 class="cursor-pointer rounded-xl border border-slate-300 bg-white text-sm text-slate-500 file:mr-3 file:cursor-pointer file:border-0 file:bg-slate-100 file:px-3 file:py-2 file:text-sm file:font-medium file:text-slate-700 dark:border-slate-700 dark:bg-slate-950 dark:file:bg-slate-800 dark:file:text-slate-200">
+          <label class="flex items-center gap-2 text-sm">
+            <input id="post-pending" type="checkbox" class="h-4 w-4 accent-blue-600">
+            先存为待审核
+          </label>
+          <button type="submit" id="post-save"
+                  class="inline-flex min-h-11 items-center justify-center rounded-xl bg-blue-600 px-5 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:opacity-60">发布</button>
+          <span id="post-status" class="text-sm text-slate-500 dark:text-slate-400"></span>
+        </div>
+      </form>
+
+      <p id="posts-loading" class="mt-4 text-sm text-slate-500 dark:text-slate-400">加载中…</p>
+      <ul id="admin-posts" class="mt-4 grid gap-2"></ul>
+    </section>
+
+    <!-- ============================================================
+         文章管理
+         ============================================================ -->
+    <section class="mt-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-md dark:border-slate-800 dark:bg-slate-900">
+      <div class="mb-3 flex flex-wrap items-center justify-between gap-3">
+        <h2 class="text-lg font-semibold">文章</h2>
+        <button id="article-new" type="button"
+                class="rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-blue-700">＋ 写新文章</button>
+      </div>
+
+      <ul id="admin-articles" class="grid gap-2">
+        <li class="text-sm text-slate-500 dark:text-slate-400">加载中…</li>
+      </ul>
+
+      <!-- 编辑器 -->
+      <form id="article-form" class="mt-5 hidden border-t border-slate-200 pt-5 dark:border-slate-800">
+        <input type="hidden" id="article-id">
+        <div class="grid gap-3 sm:grid-cols-2">
+          <div class="sm:col-span-2">
+            <label for="article-title" class="mb-1 block text-sm font-medium">标题 <span class="text-red-500">*</span></label>
+            <input id="article-title" type="text" maxlength="80" required
+                   class="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm outline-hidden transition focus:border-blue-500 dark:border-slate-700 dark:bg-slate-950">
+          </div>
+          <div>
+            <label for="article-slug" class="mb-1 block text-sm font-medium">URL 标识（可留空自动生成）</label>
+            <input id="article-slug" type="text" maxlength="60" placeholder="my-first-post"
+                   class="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 font-mono text-xs outline-hidden transition focus:border-blue-500 dark:border-slate-700 dark:bg-slate-950">
+          </div>
+          <div>
+            <label for="article-tags" class="mb-1 block text-sm font-medium">标签（逗号分隔）</label>
+            <input id="article-tags" type="text" maxlength="120" placeholder="Cloudflare, 教程"
+                   class="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm outline-hidden transition focus:border-blue-500 dark:border-slate-700 dark:bg-slate-950">
+          </div>
+          <div class="sm:col-span-2">
+            <label for="article-summary" class="mb-1 block text-sm font-medium">摘要（列表页显示，可留空）</label>
+            <input id="article-summary" type="text" maxlength="200"
+                   class="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm outline-hidden transition focus:border-blue-500 dark:border-slate-700 dark:bg-slate-950">
+          </div>
+          <div class="sm:col-span-2">
+            <label for="article-content" class="mb-1 block text-sm font-medium">正文（Markdown）<span class="text-red-500">*</span></label>
+            <textarea id="article-content" rows="16" required
+                      class="w-full resize-y rounded-xl border border-slate-300 bg-white px-3 py-2 font-mono text-xs leading-relaxed outline-hidden transition focus:border-blue-500 dark:border-slate-700 dark:bg-slate-950"></textarea>
+            <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">
+              支持 # 标题、**粗体**、*斜体*、`行内代码`、```代码块```、- 列表、1. 有序列表、&gt; 引用、[链接](url)、![图片](url)、--- 分割线
+            </p>
+          </div>
+        </div>
+        <!-- 封面图：只有文章已保存（有 id）后才能传，因为要挂到具体文章上 -->
+        <div class="mt-4 rounded-xl border border-dashed border-slate-300 p-3 dark:border-slate-700">
+          <p class="mb-2 text-sm font-medium">封面图 <span class="font-normal text-slate-500 dark:text-slate-400">（列表页和详情页顶部显示）</span></p>
+          <div id="cover-box" class="flex flex-wrap items-center gap-3">
+            <img id="cover-preview" src="" alt="" class="hidden h-16 w-28 rounded-lg border border-slate-200 object-cover dark:border-slate-700">
+            <span id="cover-empty" class="text-xs text-slate-500 dark:text-slate-400">还没有封面</span>
+            <input id="article-cover-file" type="file" accept="image/jpeg,image/png,image/gif,image/webp"
+                   class="cursor-pointer rounded-lg border border-slate-300 bg-white text-xs text-slate-500 file:mr-2 file:cursor-pointer file:border-0 file:bg-slate-100 file:px-2.5 file:py-1.5 file:text-xs file:font-medium file:text-slate-700 dark:border-slate-700 dark:bg-slate-950 dark:file:bg-slate-800 dark:file:text-slate-200">
+            <button type="button" id="cover-remove" hidden
+                    class="rounded-lg border border-red-300 px-3 py-1.5 text-xs font-medium text-red-600 transition hover:bg-red-50 dark:border-red-800 dark:text-red-400 dark:hover:bg-red-950">移除封面</button>
+          </div>
+          <p id="cover-status" class="mt-2 min-h-4 text-xs text-slate-500 dark:text-slate-400"></p>
+        </div>
+
+        <div class="mt-4 flex flex-wrap items-center gap-3">
+          <label class="flex items-center gap-2 text-sm">
+            <input id="article-status" type="checkbox" class="h-4 w-4 accent-blue-600" checked>
+            发布（不勾就是草稿）
+          </label>
+          <label class="flex items-center gap-2 text-sm">
+            <input id="article-pinned" type="checkbox" class="h-4 w-4 accent-blue-600">
+            置顶
+          </label>
+          <button type="submit" id="article-save"
+                  class="inline-flex min-h-11 items-center justify-center rounded-xl bg-blue-600 px-5 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:opacity-60">保存</button>
+          <button type="button" id="article-preview"
+                  class="rounded-xl border border-slate-300 px-4 py-2 text-sm font-medium transition hover:bg-slate-50 dark:border-slate-700 dark:hover:bg-slate-800">预览</button>
+          <button type="button" id="article-cancel"
+                  class="rounded-xl border border-slate-300 px-4 py-2 text-sm font-medium transition hover:bg-slate-50 dark:border-slate-700 dark:hover:bg-slate-800">取消</button>
+          <span id="article-msg" class="text-sm text-slate-500 dark:text-slate-400"></span>
+        </div>
+        <div id="article-preview-box" class="prose-custom mt-4 hidden rounded-xl border border-dashed border-slate-300 p-4 dark:border-slate-700"></div>
+      </form>
+    </section>
+
+    <!-- ============================================================
+         友链管理
+         ============================================================ -->
+
+  <!-- ==================== 更新日志 ==================== -->
+  <section class="mt-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-md dark:border-slate-800 dark:bg-slate-900">
+    <div class="mb-3 flex flex-wrap items-center justify-between gap-3">
+      <div>
+        <h2 class="text-lg font-semibold">更新日志</h2>
+        <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">
+          一条记录 = 一天的更新。正文支持 Markdown。
+        </p>
+      </div>
+      <button id="changelog-new" type="button"
+              class="rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-blue-700">＋ 写一条</button>
+    </div>
+
+    <ul id="admin-changelog" class="grid gap-2">
+      <li class="text-sm text-slate-500 dark:text-slate-400">登录后加载…</li>
+    </ul>
+
+    <form id="changelog-form" class="mt-5 hidden border-t border-slate-200 pt-5 dark:border-slate-800">
+      <input type="hidden" id="changelog-id">
+      <div class="grid gap-3 sm:grid-cols-2">
+        <div>
+          <label for="changelog-date" class="mb-1 block text-sm font-medium">日期 <span class="text-red-500">*</span></label>
+          <input id="changelog-date" type="date" required
+                 class="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm outline-hidden transition focus:border-blue-500 dark:border-slate-700 dark:bg-slate-950">
+        </div>
+        <div>
+          <label for="changelog-title" class="mb-1 block text-sm font-medium">标题 <span class="text-red-500">*</span></label>
+          <input id="changelog-title" type="text" maxlength="100" required
+                 placeholder="今天改了什么，一句话说清"
+                 class="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm outline-hidden transition focus:border-blue-500 dark:border-slate-700 dark:bg-slate-950">
+        </div>
+        <div class="sm:col-span-2">
+          <label for="changelog-content" class="mb-1 block text-sm font-medium">正文（Markdown）</label>
+          <textarea id="changelog-content" rows="10"
+                    placeholder="- 加了什么&#10;- 修了什么&#10;- 改了什么"
+                    class="w-full resize-y rounded-xl border border-slate-300 bg-white px-3 py-2 font-mono text-xs leading-relaxed outline-hidden transition focus:border-blue-500 dark:border-slate-700 dark:bg-slate-950"></textarea>
+        </div>
+      </div>
+      <div class="mt-3 flex flex-wrap items-center gap-2">
+        <button type="submit"
+                class="rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-blue-700">保存</button>
+        <button type="button" id="changelog-cancel"
+                class="rounded-xl border border-slate-300 px-4 py-2 text-sm transition hover:bg-slate-100 dark:border-slate-700 dark:hover:bg-slate-800">取消</button>
+        <span id="changelog-status" class="text-sm"></span>
+      </div>
+    </form>
+  </section>
+
+
+    <section class="mt-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-md dark:border-slate-800 dark:bg-slate-900">
+      <h2 class="mb-3 text-lg font-semibold">友链</h2>
+      <div class="mb-3 flex flex-wrap gap-2">
+        <button data-ffilter="all"      class="ffilter-btn rounded-xl border border-slate-300 px-4 py-1.5 text-sm font-medium dark:border-slate-700">全部</button>
+        <button data-ffilter="pending"  class="ffilter-btn rounded-xl border border-slate-300 px-4 py-1.5 text-sm font-medium dark:border-slate-700">⏳ 待审核</button>
+        <button data-ffilter="approved" class="ffilter-btn rounded-xl border border-slate-300 px-4 py-1.5 text-sm font-medium dark:border-slate-700">✅ 已通过</button>
+      </div>
+      <p id="friends-loading" class="text-sm text-slate-500 dark:text-slate-400">加载中…</p>
+      <ul id="admin-friends" class="grid gap-2"></ul>
+    </section>
+
+    <!-- ============================================================
+         作品集相册
+         ============================================================ -->
+    <section class="mt-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-md dark:border-slate-800 dark:bg-slate-900">
+      <h2 class="mb-3 text-lg font-semibold">作品集相册</h2>
+
+      <form id="gallery-form" class="grid gap-3 sm:grid-cols-2">
+        <div class="sm:col-span-2">
+          <label for="gal-image" class="mb-1 block text-sm font-medium">图片</label>
+          <input id="gal-image" name="image" type="file" accept="image/jpeg,image/png,image/gif,image/webp"
+                 class="block w-full cursor-pointer rounded-xl border border-slate-300 bg-white text-sm text-slate-500 file:mr-3 file:cursor-pointer file:border-0 file:bg-slate-100 file:px-3 file:py-2 file:text-sm file:font-medium file:text-slate-700 dark:border-slate-700 dark:bg-slate-950 dark:file:bg-slate-800 dark:file:text-slate-200">
+          <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">JPG/PNG/GIF/WebP，压缩后不超过 1 MB</p>
+        </div>
+        <div>
+          <label for="gal-title" class="mb-1 block text-sm font-medium">作品名</label>
+          <input id="gal-title" type="text" maxlength="60"
+                 class="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm outline-hidden transition focus:border-blue-500 dark:border-slate-700 dark:bg-slate-950">
+        </div>
+        <div>
+          <label for="gal-sort" class="mb-1 block text-sm font-medium">排序权重</label>
+          <input id="gal-sort" type="number" value="0"
+                 class="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm outline-hidden transition focus:border-blue-500 dark:border-slate-700 dark:bg-slate-950">
+        </div>
+        <div class="sm:col-span-2">
+          <label for="gal-note" class="mb-1 block text-sm font-medium">说明</label>
+          <input id="gal-note" type="text" maxlength="200"
+                 class="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm outline-hidden transition focus:border-blue-500 dark:border-slate-700 dark:bg-slate-950">
+        </div>
+        <div class="flex items-center gap-3 sm:col-span-2">
+          <button type="submit" id="gallery-save"
+                  class="inline-flex min-h-11 items-center justify-center rounded-xl bg-blue-600 px-5 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:opacity-60">上传到相册</button>
+          <p id="gallery-status" class="text-sm text-slate-500 dark:text-slate-400"></p>
+        </div>
+      </form>
+
+      <p id="gallery-loading" class="mt-4 text-sm text-slate-500 dark:text-slate-400">加载中…</p>
+      <p id="gallery-empty" class="mt-4 hidden text-sm text-slate-500 dark:text-slate-400">相册还是空的。</p>
+      <div id="gallery-admin-grid" class="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4"></div>
+    </section>
+
+    <!-- ============================================================
+         访问量趋势 + 来源
+         ============================================================ -->
+    <section class="mt-6 grid gap-6 lg:grid-cols-2">
+      <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-md dark:border-slate-800 dark:bg-slate-900">
+        <div class="mb-3 flex flex-wrap items-center justify-between gap-3">
+          <h2 class="text-lg font-semibold">访问量趋势</h2>
+          <div class="flex gap-2">
+            <button data-days="7"  class="trend-btn rounded-lg border border-slate-300 px-3 py-1 text-xs font-medium dark:border-slate-700">7 天</button>
+            <button data-days="30" class="trend-btn rounded-lg border border-slate-300 px-3 py-1 text-xs font-medium dark:border-slate-700">30 天</button>
+            <button data-days="90" class="trend-btn rounded-lg border border-slate-300 px-3 py-1 text-xs font-medium dark:border-slate-700">90 天</button>
+          </div>
+        </div>
+        <div id="trend-chart"><p class="text-sm text-slate-500 dark:text-slate-400">加载中…</p></div>
+        <p id="trend-note" class="mt-3 text-xs text-slate-500 dark:text-slate-400"></p>
+      </div>
+
+      <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-md dark:border-slate-800 dark:bg-slate-900">
+        <h2 class="mb-3 text-lg font-semibold">访问来源</h2>
+        <p id="refs-empty" class="hidden text-sm text-slate-500 dark:text-slate-400">还没有来源数据（要从下次访问开始记录）。</p>
+        <div id="refs-chart"></div>
+        <p id="refs-note" class="mt-3 text-xs text-slate-500 dark:text-slate-400"></p>
+      </div>
+    </section>
+
+    <!-- ============================================================
+         站点设置（含关于我）
+         ============================================================ -->
+    <section class="mt-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-md dark:border-slate-800 dark:bg-slate-900">
+      <h2 class="mb-3 text-lg font-semibold">站点设置</h2>
+      <form id="settings-form" class="grid gap-4">
+        <label class="flex cursor-pointer items-start gap-3">
+          <input id="set-approval" type="checkbox" class="mt-1 h-4 w-4 shrink-0 accent-blue-600">
+          <span>
+            <span class="block text-sm font-medium">新留言需要审核</span>
+            <span class="block text-xs text-slate-500 dark:text-slate-400">打开后访客的留言会先进「待审核」，通过后才显示在首页。</span>
+          </span>
+        </label>
+
+        <div class="grid gap-3 sm:grid-cols-3">
+          <div>
+            <label for="set-notify-type" class="mb-1 block text-sm font-medium">新留言通知</label>
+            <select id="set-notify-type"
+                    class="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm outline-hidden dark:border-slate-700 dark:bg-slate-950">
+              <option value="off">关闭通知</option>
+              <option value="wecom">企业微信群机器人</option>
+              <option value="dingtalk">钉钉群机器人</option>
+              <option value="serverchan">Server酱</option>
+              <option value="json">通用 JSON</option>
+            </select>
+          </div>
+          <div class="sm:col-span-2">
+            <label for="set-notify-webhook" class="mb-1 block text-sm font-medium">推送地址</label>
+            <input id="set-notify-webhook" type="url" placeholder="https://..."
+                   class="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 font-mono text-xs outline-hidden dark:border-slate-700 dark:bg-slate-950">
+            <p id="notify-hint" class="mt-1 text-xs text-slate-500 dark:text-slate-400"></p>
+          </div>
+        </div>
+
+        <div class="grid gap-3 sm:grid-cols-3">
+          <div>
+            <label for="set-github-user" class="mb-1 block text-sm font-medium">GitHub 用户名</label>
+            <input id="set-github-user" type="text" maxlength="39"
+                   class="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm outline-hidden dark:border-slate-700 dark:bg-slate-950">
+          </div>
+          <label class="flex cursor-pointer items-start gap-3 sm:col-span-2 sm:mt-6">
+            <input id="set-spam" type="checkbox" class="mt-1 h-4 w-4 shrink-0 accent-blue-600">
+            <span>
+              <span class="block text-sm font-medium">开启垃圾内容过滤</span>
+              <span class="block text-xs text-slate-500 dark:text-slate-400">按关键词、链接数量、灌水特征拦截留言 / 说说 / 友链申请</span>
+            </span>
+          </label>
+        </div>
+
+        <div>
+          <label for="set-about" class="mb-1 block text-sm font-medium">关于我（Markdown）</label>
+          <textarea id="set-about" rows="10"
+                    class="w-full resize-y rounded-xl border border-slate-300 bg-white px-3 py-2 font-mono text-xs leading-relaxed outline-hidden dark:border-slate-700 dark:bg-slate-950"
+                    placeholder="# 你好&#10;&#10;这里可以写详细的自我介绍，支持 Markdown。"></textarea>
+          <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">
+            显示在 <a href="about" target="_blank" class="text-blue-500 underline">/about</a> 页面
+          </p>
+        </div>
+
+        <div>
+          <label for="set-now" class="mb-1 block text-sm font-medium">Now 页面（Markdown）</label>
+          <textarea id="set-now" rows="8"
+                    class="w-full resize-y rounded-xl border border-slate-300 bg-white px-3 py-2 font-mono text-xs leading-relaxed outline-hidden dark:border-slate-700 dark:bg-slate-950"
+                    placeholder="# 最近在做什么&#10;&#10;说说你当前在忙什么、在学什么。"></textarea>
+          <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">
+            显示在 <a href="now" target="_blank" class="text-blue-500 underline">/now</a> 页面
+          </p>
+        </div>
+
+<!-- 人机校验。sitekey 是**公开值**（本来就要写进网页里），
+     所以放在这里让站长自己填，不用改代码、不用重新部署。
+     真正要保密的是 secret，那个得用 wrangler secret put 存成 Worker 密钥。 -->
+<div>
+  <label for="set-turnstile" class="mb-1 block text-sm font-medium">
+    Turnstile sitekey <span class="font-normal text-slate-500 dark:text-slate-400">（公开值，可留空）</span>
+  </label>
+  <input id="set-turnstile" type="text" maxlength="100" placeholder="0x4AAAAAAA..."
+         class="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 font-mono text-xs outline-hidden dark:border-slate-700 dark:bg-slate-950">
+  <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">
+    留空 = 不启用人机校验。填了之后留言板和友链申请会出现验证组件。<br>
+    secret 不在这里填 —— 用
+    <code class="rounded bg-slate-100 px-1 dark:bg-slate-800">npx wrangler secret put TURNSTILE_SECRET</code>
+    存成 Worker 密钥。<b>两者必须同时配好才生效</b>：只填 sitekey 不配 secret，后端会直接放行。
+  </p>
+</div>
+
+
+        <div class="flex flex-wrap items-center gap-3">
+          <button type="submit" id="settings-save"
+                  class="inline-flex min-h-11 items-center justify-center rounded-xl bg-blue-600 px-5 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:opacity-60">保存设置</button>
+          <button type="button" id="notify-test"
+                  class="rounded-xl border border-slate-300 px-4 py-2 text-sm font-medium transition hover:bg-slate-50 dark:border-slate-700 dark:hover:bg-slate-800">发一条测试通知</button>
+        </div>
+      </form>
+    </section>
+
+    <!-- ============================================================
+         垃圾词 + 自动备份
+         ============================================================ -->
+    <section class="mt-6 grid gap-6 lg:grid-cols-2">
+      <div class="min-w-0 rounded-2xl border border-slate-200 bg-white p-5 shadow-md dark:border-slate-800 dark:bg-slate-900">
+        <h2 class="mb-3 text-lg font-semibold">垃圾词黑名单</h2>
+        <form id="word-form" class="flex gap-2">
+          <input id="word-input" type="text" maxlength="40" placeholder="要屏蔽的词…"
+                 class="flex-1 rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm outline-hidden dark:border-slate-700 dark:bg-slate-950">
+          <button type="submit" class="rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-blue-700">添加</button>
+        </form>
+        <p id="word-status" class="mt-2 min-h-5 text-sm text-slate-500 dark:text-slate-400"></p>
+        <ul id="word-list" class="mt-2 flex flex-wrap gap-2"></ul>
+      </div>
+
+      <div class="min-w-0 rounded-2xl border border-slate-200 bg-white p-5 shadow-md dark:border-slate-800 dark:bg-slate-900">
+        <h2 class="mb-3 text-lg font-semibold">自动备份到 GitHub</h2>
+        <p id="backup-status" class="text-sm text-slate-500 dark:text-slate-400">加载中…</p>
+        <div class="mt-3 grid gap-3">
+          <label class="flex cursor-pointer items-start gap-3">
+            <input id="backup-enabled" type="checkbox" class="mt-1 h-4 w-4 shrink-0 accent-blue-600">
+            <span>
+              <span class="block text-sm font-medium">每天自动备份</span>
+              <span class="block text-xs text-slate-500 dark:text-slate-400">每天 UTC 03:00（北京时间 11:00）把数据导出成 JSON 提交到仓库</span>
+            </span>
+          </label>
+          <div class="grid gap-2 sm:grid-cols-2">
+            <div>
+              <label for="backup-repo" class="mb-1 block text-xs font-medium text-slate-500">仓库（owner/repo）</label>
+              <input id="backup-repo" type="text" placeholder="your-name/your-site"
+                     class="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 font-mono text-xs outline-hidden dark:border-slate-700 dark:bg-slate-950">
+            </div>
+            <div>
+              <label for="backup-path" class="mb-1 block text-xs font-medium text-slate-500">存放目录</label>
+              <input id="backup-path" type="text" placeholder="backup"
+                     class="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 font-mono text-xs outline-hidden dark:border-slate-700 dark:bg-slate-950">
+            </div>
+          </div>
+          <div class="flex flex-wrap items-center gap-3">
+            <button type="button" id="backup-save"
+                    class="rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-blue-700">保存备份设置</button>
+            <button type="button" id="backup-now"
+                    class="rounded-xl border border-slate-300 px-4 py-2 text-sm font-medium transition hover:bg-slate-50 dark:border-slate-700 dark:hover:bg-slate-800">立即备份一次</button>
+            <span id="backup-msg" class="text-sm text-slate-500 dark:text-slate-400"></span>
+          </div>
+          <p id="backup-preview" class="text-xs text-slate-500 dark:text-slate-400"></p>
+
+<!-- 图片备份：图片不塞进 JSON（会让备份膨胀 33%、仓库疯长），
+     而是单独作为二进制文件存到 <目录>/images/ -->
+<div class="mt-3 rounded-xl border border-slate-200 p-3 dark:border-slate-800">
+  <div class="mb-2 flex flex-wrap items-center justify-between gap-2">
+    <p class="text-xs font-medium text-slate-500">
+      图片备份 <span class="font-normal text-slate-500 dark:text-slate-400">（单独存成文件，不占 JSON 体积）</span>
+    </p>
+    <button type="button" id="images-restore"
+            class="rounded-lg border border-amber-400 px-2.5 py-1 text-xs font-medium text-amber-700 transition hover:bg-amber-50 dark:border-amber-700 dark:text-amber-400 dark:hover:bg-amber-950/40">
+      从备份补回图片
+    </button>
+  </div>
+  <p id="images-status" class="text-xs text-slate-500 dark:text-slate-400">加载中…</p>
+  <p id="images-msg" class="mt-1 min-h-4 text-xs text-slate-500 dark:text-slate-400"></p>
+</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================================================
+         站点自检
+         ============================================================ -->
+    <section class="mt-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-md dark:border-slate-800 dark:bg-slate-900">
+      <div class="mb-3 flex flex-wrap items-center justify-between gap-3">
+        <h2 class="text-lg font-semibold">站点自检</h2>
+        <button id="selfcheck-run" type="button"
+                class="rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:opacity-60">立即自检</button>
+      </div>
+      <p id="selfcheck-status" class="text-sm text-slate-500 dark:text-slate-400">加载中…</p>
+      <ul id="selfcheck-list" class="mt-3 grid gap-1.5"></ul>
+      <!-- 自检的盲区说明。
+           折叠起来不占地方，但点开要讲得足够清楚 —— 因为这里说的
+           恰恰是「自检在什么情况下会失效」，不说清楚等于没写。 -->
+      <details class="mt-4 rounded-xl border border-amber-300/70 bg-amber-50/60 p-3.5 text-xs dark:border-amber-900/60 dark:bg-amber-950/20">
+        <summary class="cursor-pointer select-none font-medium text-amber-700 dark:text-amber-400">
+          ⚠️ 这个自检有盲区 —— 它查不了「站点是不是挂了」
+        </summary>
+
+        <div class="mt-3 space-y-2.5 leading-relaxed text-slate-600 dark:text-slate-300">
+          <p>
+            <b class="text-slate-700 dark:text-slate-200">根本原因：自检和被检对象同生共死。</b>
+            自检代码就跑在这个 Worker 里。Worker 一旦挂了，这段代码也跑不起来 ——
+            你连后台都打不开，更别说点「立即自检」。
+          </p>
+
+          <div>
+            <p class="mb-1"><b class="text-slate-700 dark:text-slate-200">所以下面这些情况，它一个都报不出来：</b></p>
+            <ul class="ml-4 list-disc space-y-0.5">
+              <li>Worker 整体宕机 / 部署出错</li>
+              <li>Pages 挂了（前端整个打不开）</li>
+              <li>域名解析 / DNS 出问题</li>
+              <li>Cloudflare 区域性故障</li>
+              <li>SSL 证书过期</li>
+            </ul>
+          </div>
+
+          <p>
+            <b class="text-slate-700 dark:text-slate-200">它真正能查的</b>是「Worker 还活着的时候，它的依赖好不好」：
+            数据库能不能读写、图片存储是否正常、<code class="rounded bg-slate-100 px-1 dark:bg-slate-800">GH_TOKEN</code> 有没有配、GitHub API 通不通。
+          </p>
+
+          <p>
+            <b class="text-slate-700 dark:text-slate-200">这两件事不重叠。</b>
+            要覆盖前一类，只能靠<b>站外</b>的监控 —— 它从外面敲你的站，敲不通就告警，不依赖你站里任何东西。
+          </p>
+
+          <p>
+            免费方案：
+            <a href="https://uptimerobot.com" target="_blank" rel="noopener noreferrer" class="text-blue-500 underline">UptimeRobot</a>
+            或
+            <a href="https://healthchecks.io" target="_blank" rel="noopener noreferrer" class="text-blue-500 underline">Healthchecks.io</a>，
+            盯 <code class="rounded bg-slate-100 px-1 dark:bg-slate-800">https://example.com/</code>，
+            5 分钟一次，敲不通就发邮件。
+          </p>
+
+          <p>
+            还有一点：自检失败时会走已配置的通知渠道，但<b>如果 Worker 整个挂了，那条通知同样发不出来</b> ——
+            也是"同生共死"。
+          </p>
+
+          <p class="rounded-lg bg-slate-200/50 p-2.5 text-slate-600 dark:bg-slate-800/50 dark:text-slate-300">
+            <b>一句话总结：</b>这个面板回答的是「Worker 还能跑的时候，它有没有毛病」；
+            「Worker 还在不在跑」得由外面的服务来回答。
+          </p>
+        </div>
+      </details>
+    </section>
+
+    <!-- ============================================================
+         从备份恢复
+         ============================================================ -->
+    <section class="mt-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-md dark:border-slate-800 dark:bg-slate-900">
+      <h2 class="mb-3 text-lg font-semibold">从备份恢复</h2>
+      <p class="text-sm text-slate-500 dark:text-slate-400">
+        选一份 <code class="rounded bg-slate-100 px-1 dark:bg-slate-800">backup/*.json</code> 上传，先预览会改什么，确认后再写入。
+      </p>
+
+      <input id="restore-file" type="file" accept="application/json,.json"
+             class="mt-3 block w-full cursor-pointer rounded-xl border border-slate-300 bg-white text-sm text-slate-500 file:mr-3 file:cursor-pointer file:border-0 file:bg-slate-100 file:px-3 file:py-2 file:text-sm file:font-medium file:text-slate-700 dark:border-slate-700 dark:bg-slate-950 dark:file:bg-slate-800 dark:file:text-slate-200">
+      <div class="mt-3 flex flex-wrap gap-2">
+        <button id="restore-preview" type="button"
+                class="rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-blue-700">预览</button>
+        <button id="restore-merge" type="button" disabled
+                class="rounded-xl border border-slate-300 px-4 py-2 text-sm font-medium transition hover:bg-slate-50 disabled:opacity-40 dark:border-slate-700 dark:hover:bg-slate-800">合并恢复</button>
+        <button id="restore-replace" type="button" disabled
+                class="rounded-xl border border-red-300 px-4 py-2 text-sm font-medium text-red-600 transition hover:bg-red-50 disabled:opacity-40 dark:border-red-800 dark:text-red-400 dark:hover:bg-red-950">覆盖恢复</button>
+      </div>
+      <p id="restore-status" class="mt-3 min-h-5 text-sm text-slate-500 dark:text-slate-400"></p>
+      <div id="restore-result" class="mt-3"></div>
+    </section>
+
+    <!-- ============================================================
+         操作日志
+         ============================================================ -->
+    <section class="mt-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-md dark:border-slate-800 dark:bg-slate-900">
+      <div class="mb-3 flex flex-wrap items-center justify-between gap-3">
+        <h2 class="text-lg font-semibold">操作日志</h2>
+        <button id="audit-refresh" type="button"
+                class="rounded-xl border border-slate-300 px-4 py-2 text-sm font-medium transition hover:bg-slate-50 dark:border-slate-700 dark:hover:bg-slate-800">🔄 刷新</button>
+      </div>
+      <p id="audit-loading" class="text-sm text-slate-500 dark:text-slate-400">加载中…</p>
+      <ul id="audit-list" class="grid gap-1.5"></ul>
+      <div id="audit-pagination" class="mt-4 hidden flex-wrap items-center justify-center gap-2"></div>
+    </section>
+
+  </section>
+</main>
+  <script src="media.js?v=146f46d9" defer></script>
+
+<script src="admin.js?v=2e4cd20a" defer></script>
+<script src="admin-content.js?v=c7b61bc9" defer></script>
+<script src="admin-system.js?v=d02ea943" defer></script>
+</body>
+</html>

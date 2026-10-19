@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>页面不存在 · Demo</title>
+<meta name="robots" content="noindex">
+<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<script>
+  (function () {
+    try {
+      var d = document.documentElement;
+      var m = localStorage.getItem('your-site:theme');
+      var dark;
+      if (m === 'light') dark = false;
+      else if (m === 'dark') dark = true;
+      else if (m === 'auto') { var h = new Date().getHours(); dark = (h >= 18 || h < 6); }
+      else dark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+      d.setAttribute('data-theme', dark ? 'dark' : 'light');
+
+      var hh = new Date().getHours();
+      d.setAttribute('data-daypart',
+        hh >= 6 && hh < 11 ? 'morning' :
+        hh >= 11 && hh < 17 ? 'day' :
+        hh >= 17 && hh < 20 ? 'evening' : 'night');
+    } catch (e) {}
+  })();
+</script>
+<link rel="stylesheet" href="/tailwind.css?v=a32e601a">
+<link rel="stylesheet" href="/style.css?v=6b7054ad">
+</head>
+<body class="flex min-h-screen items-center justify-center bg-slate-50 px-6 text-slate-800 antialiased dark:bg-slate-950 dark:text-slate-200">
+
+<!-- 背景：极光光晕 + 网格，颜色跟随时段变化 -->
+<div class="bg-layer" aria-hidden="true"></div>
+  <main class="max-w-md text-center">
+    <p class="font-mono text-7xl font-bold text-blue-600 dark:text-blue-400">404</p>
+    <h1 class="mt-4 text-2xl font-semibold">这个页面不存在</h1>
+    <p class="mt-2 text-sm leading-relaxed text-slate-500 dark:text-slate-400">
+      链接可能打错了，或者这个页面已经被我删掉了。<br>
+      要不要回首页看看？
+    </p>
+    <a href="/"
+       class="mt-7 inline-flex items-center gap-2 rounded-xl bg-blue-600 px-6 py-2.5 text-sm font-semibold text-white shadow-md transition hover:bg-blue-700">
+      ← 回到首页
+    </a>
+  </main>
+</body>
+</html>

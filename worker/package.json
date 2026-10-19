@@ -1,0 +1,13 @@
+{
+  "name": "profile-kit-worker",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "个人主页后端 API —— Cloudflare Worker + D1（配置在仓库根的 wrangler.toml）",
+  "scripts": {
+    "dev": "wrangler dev --config=../wrangler.toml"
+  },
+  "devDependencies": {
+    "wrangler": "^4.0.0"
+  }
+}
