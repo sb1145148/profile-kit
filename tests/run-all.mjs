@@ -69,8 +69,15 @@ async function ensureServer() {
 let total = 0, failed = 0;
 
 const started = await ensureServer();
-if (started) console.log(`  自己起了本地服务器（:${PORT}）`);
-else console.log(`  复用已有服务器（:${PORT}）`);
+if (started) {
+  console.log(`  自己起了本地服务器（:${PORT}）`);
+} else {
+  // ⚠️ 复用别人起的服务器时，数据库里已经有上一个用例的数据，
+  //    依赖「空库」的断言（比如「提交后列表条数 +1」）可能会失败。
+  //    遇到莫名其妙的失败，先把这个服务器停掉再重跑。
+  console.log(`  ⚠️ 复用了已经在跑的服务器（:${PORT}）—— 它的数据库不是空的`);
+  console.log('     如果出现奇怪的失败，先停掉它再跑一次');
+}
 
 for (const [file, label] of SUITES) {
   if (!fs.existsSync(path.join(__dirname, file))) {
