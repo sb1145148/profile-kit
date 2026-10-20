@@ -15,6 +15,10 @@
 
 const CFG_API_BASE = 'https://api.example.com';
 const API_BASE = (() => {
+  // 测试服务器（tests/profile-server.mjs）会注入这个全局，
+  // 让它能跑在任意端口。生产环境没有它，走下面的正常逻辑。
+  if (typeof window !== 'undefined' && window.__API_BASE__) return window.__API_BASE__;
+
   const host = location.hostname;
   const isLocal = host === 'localhost' || host === '127.0.0.1' || host === '' || location.protocol === 'file:';
   return isLocal ? 'http://127.0.0.1:8787' : CFG_API_BASE;

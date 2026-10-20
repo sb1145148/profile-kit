@@ -52,7 +52,7 @@
   })();
 </script>
 
-<link rel="stylesheet" href="tailwind.css?v=a32e601a">
+<link rel="stylesheet" href="tailwind.css?v=1e9f5852">
 <link rel="stylesheet" href="style.css?v=6b7054ad">
 </head>
 
@@ -132,6 +132,25 @@
             class="mt-3 w-full rounded-xl border border-slate-300 py-2 text-sm font-medium text-slate-500 transition hover:border-blue-400 hover:text-blue-600 dark:border-slate-700 dark:text-slate-400 dark:hover:border-blue-500 dark:hover:text-blue-400">
       展开全部
     </button>
+  </section>
+
+  <!-- ==================== 最近文章 ==================== -->
+  <!--
+    首页原本没有文章入口，访客只能靠导航栏点进「文章」才看得到。
+    这里露最近 3 篇，让人一眼知道这个站有在写东西。
+  -->
+  <section id="recent-articles" class="mt-12 scroll-mt-20">
+    <h2 class="mb-3 flex items-baseline gap-2 text-lg font-semibold">
+      文章
+      <span id="recent-articles-count" class="text-sm font-normal text-slate-500 dark:text-slate-400"></span>
+      <a href="articles"
+         class="ml-auto text-sm font-normal text-blue-600 transition hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300">
+        看全部 →
+      </a>
+    </h2>
+    <p id="recent-articles-loading" class="text-sm text-slate-500 dark:text-slate-400">加载中…</p>
+    <p id="recent-articles-empty" class="hidden text-sm text-slate-500 dark:text-slate-400">还没有文章。</p>
+    <ul id="recent-articles-list" class="grid gap-3"></ul>
   </section>
 
   <!-- ==================== 歌单 ==================== -->
@@ -293,7 +312,7 @@
 </div>
   <script src="media.js?v=146f46d9" defer></script>
 
-<script src="core.js?v=f1015ee3" defer></script>
-<script src="app.js?v=098a60ce" defer></script>
+<script src="core.js?v=9f297285" defer></script>
+<script src="app.js?v=ea60c81a" defer></script>
 </body>
 </html>

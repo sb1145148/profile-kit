@@ -124,6 +124,18 @@ const server = http.createServer(async (req, res) => {
       },
     };
 
+    /**
+     * 往 HTML 里注入接口地址。
+     *
+     * core.js 里本地环境的 API_BASE 写死成 127.0.0.1:8787，所以测试服务器
+     * 一旦跑在别的端口，页面就会去连 8787（没人听）—— 所有请求静默失败，
+     * 页面看起来"什么都没渲染"，而接口其实是好的。
+     */
+    function injectApiBase(html) {
+      const tag = `<script>window.__API_BASE__ = "http://127.0.0.1:${PORT}";</script>`;
+      return html.replace(/<head([^>]*)>/i, `<head$1>${tag}`);
+    }
+
     async function runFunction(relPath, params) {
       const mod = await import(path.join(FRONT_DIR, relPath));
       const request = new Request(url.toString(), { method: 'GET' });
@@ -136,8 +148,13 @@ const server = http.createServer(async (req, res) => {
       const slug = decodeURIComponent(url.pathname.slice(3));
       try {
         const response = await runFunction('functions/a/[slug].js', { slug });
+        const ct = response.headers.get('content-type') || '';
+        const raw = Buffer.from(await response.arrayBuffer());
+        const out = ct.includes('text/html')
+          ? Buffer.from(injectApiBase(raw.toString('utf8')), 'utf8')
+          : raw;
         res.writeHead(response.status, Object.fromEntries(response.headers));
-        res.end(Buffer.from(await response.arrayBuffer()));
+        res.end(out);
         return;
       } catch (e) {
         console.error('Function /a/ 失败:', e.message);
@@ -234,12 +251,17 @@ const MIME = {
   }
 
   const ext = path.extname(filePath);
+
+  // HTML 要注入接口地址，见上面 injectApiBase 的说明
+  let body = fs.readFileSync(filePath);
+  if (ext === '.html') body = Buffer.from(injectApiBase(body.toString('utf8')), 'utf8');
+
   res.writeHead(200, {
     'Content-Type': MIME[ext] || 'application/octet-stream',
     // 和 Pages 一致：HTML 每次校验，其它资源可以缓一会儿
     'Cache-Control': ext === '.html' ? 'no-cache' : 'public, max-age=14400',
   });
-  res.end(fs.readFileSync(filePath));
+  res.end(body);
 });
 
 server.listen(PORT, '127.0.0.1', () => {

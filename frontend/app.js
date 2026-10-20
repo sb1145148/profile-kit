@@ -238,6 +238,58 @@ async function loadPosts() {
   }
 }
 
+/* ------------------------------------------------------------
+ * 首页的「最近文章」
+ *
+ * 原来首页没有任何文章入口 —— 访客只能靠导航栏点「文章」才看得到，
+ * 结果就是「站上有文章，但没人知道」。
+ *
+ * 这里只露最近 3 篇。多了会把首页撑得太长，剩下的交给「看全部」。
+ * 链接用 articles?slug=xxx（站内约定），不要用 /a/<slug> ——
+ * 后者是 Pages Function 整页渲染，会多一次完整加载。
+ * ---------------------------------------------------------- */
+function renderRecentArticles(data) {
+  const el = $('#recent-articles-list');
+  if (!el) return;
+
+  $('#recent-articles-loading')?.classList.add('hidden');
+
+  const items = (data && data.items) || [];
+  $('#recent-articles-empty')?.classList.toggle('hidden', items.length > 0);
+
+  const count = $('#recent-articles-count');
+  if (count) count.textContent = data && data.total ? `（共 ${data.total} 篇）` : '';
+
+  el.innerHTML = items.map((a) => `
+    <li class="min-w-0">
+      <a href="articles?slug=${encodeURIComponent(a.slug)}"
+         class="block rounded-2xl border border-slate-200 bg-white p-4 shadow-md transition hover:border-blue-300 hover:shadow-lg dark:border-slate-800 dark:bg-slate-900 dark:hover:border-blue-700">
+        <div class="flex items-baseline gap-2">
+          ${a.pinned ? '<span class="shrink-0 text-amber-500" aria-label="置顶">📌</span>' : ''}
+          <h3 class="min-w-0 flex-1 truncate font-semibold">${escapeHtml(a.title)}</h3>
+          <time class="shrink-0 font-mono text-xs text-slate-500 dark:text-slate-400">
+            ${escapeHtml(formatTime(a.created_at).slice(0, 10))}
+          </time>
+        </div>
+        ${a.summary ? `<p class="mt-1.5 line-clamp-2 text-sm leading-relaxed text-slate-600 dark:text-slate-300">${escapeHtml(a.summary)}</p>` : ''}
+        ${(a.tags || []).length ? `
+          <div class="mt-2 flex flex-wrap gap-1.5">
+            ${a.tags.slice(0, 4).map((t) => `<span class="rounded-full bg-blue-50 px-2.5 py-0.5 text-xs text-blue-700 dark:bg-blue-950 dark:text-blue-300">${escapeHtml(t)}</span>`).join('')}
+          </div>` : ''}
+      </a>
+    </li>`).join('');
+}
+
+async function loadRecentArticles() {
+  try {
+    const d = await api('/api/articles?size=3');
+    renderRecentArticles(d);
+  } catch (err) {
+    const loading = $('#recent-articles-loading');
+    if (loading) loading.textContent = '文章加载失败：' + err.message;
+  }
+}
+
 /* ============================================================
  * 3. 作品集相册
  * ============================================================ */
@@ -904,6 +956,7 @@ document.addEventListener('DOMContentLoaded', () => {
   });
   initPostsToggle();
   loadPosts();
+  loadRecentArticles();
   loadGallery();
   loadFriends();
   loadMessages(1);

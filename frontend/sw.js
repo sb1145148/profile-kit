@@ -15,7 +15,7 @@
  *     发版前跑：node build/release.mjs
  * ============================================================ */
 
-const CACHE = 'your-site-840ece3d';   // ← 发版脚本会替换成真实哈希
+const CACHE = 'your-site-43903667';   // ← 发版脚本会替换成真实哈希
 
 const SHELL = [
   '/',

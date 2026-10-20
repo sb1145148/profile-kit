@@ -1683,6 +1683,68 @@ async function uploadImage(arrayBuffer) {
   }
 
 
+
+  /* ================================================================ */
+  section('26. 首页「最近文章」区块');
+
+  // 背景：首页原来没有任何文章入口，文章只能靠导航栏点进去。
+  // 这一节守住三件事：区块存在、有文章时正确渲染、窄屏不溢出。
+
+  const c26 = await chromium.launch();
+  const p26 = await c26.newPage({ viewport: { width: 1280, height: 900 } });
+
+  for (const i of ['1', '2']) {
+    await call('/api/admin/articles', {
+      method: 'POST',
+      json: {
+        title: '区块测试文章' + i, slug: 'sec26-' + i,
+        summary: '摘要 ' + i, content: '正文', tags: '测试', status: 'published',
+      },
+    });
+  }
+
+  await p26.goto(BASE + '/', { waitUntil: 'domcontentloaded' });
+  await p26.waitForFunction(
+    () => document.querySelectorAll('#recent-articles-list li').length > 0,
+    null, { timeout: 15000 }
+  ).catch(() => {});
+  await p26.waitForTimeout(600);
+
+  const home26 = await p26.evaluate(() => {
+    const ul = document.querySelector('#recent-articles-list');
+    const items = ul ? [...ul.querySelectorAll('li')] : [];
+    const first = items[0];
+    return {
+      hasSection: !!document.querySelector('#recent-articles'),
+      count: items.length,
+      countText: (document.querySelector('#recent-articles-count') || {}).innerText || '',
+      emptyHidden: document.querySelector('#recent-articles-empty')?.classList.contains('hidden'),
+      loadingHidden: document.querySelector('#recent-articles-loading')?.classList.contains('hidden'),
+      firstTitle: first ? first.querySelector('h3')?.innerText : '',
+      firstHref: first ? first.querySelector('a')?.getAttribute('href') : '',
+      moreLink: document.querySelector('#recent-articles h2 a')?.getAttribute('href'),
+      overflow: document.documentElement.scrollWidth - document.documentElement.clientWidth,
+    };
+  });
+
+  ok('首页有「最近文章」区块', home26.hasSection);
+  ok('最多显示 3 篇', home26.count > 0 && home26.count <= 3, String(home26.count));
+  ok('有总数提示', /共 \d+ 篇/.test(home26.countText), home26.countText);
+  ok('空状态隐藏了', home26.emptyHidden === true);
+  ok('加载提示隐藏了', home26.loadingHidden === true);
+  ok('第一条有标题', !!home26.firstTitle, home26.firstTitle);
+  ok('第一条链接指向站内文章', /^articles\?slug=/.test(home26.firstHref || ''), home26.firstHref);
+  ok('有「看全部」链接', home26.moreLink === 'articles', home26.moreLink);
+  ok('首页没有横向溢出', home26.overflow <= 2, home26.overflow + 'px');
+
+  await p26.setViewportSize({ width: 320, height: 900 });
+  await p26.waitForTimeout(800);
+  const narrow26 = await p26.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+  ok('320px 下也没有横向溢出', narrow26 <= 2, narrow26 + 'px');
+
+  await c26.close();
+
+
   ok('后台无 JS 报错', errsA.length === 0, errsA.join(' | ').slice(0, 180));
   await b2.close();
 

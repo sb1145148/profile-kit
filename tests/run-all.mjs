@@ -49,6 +49,21 @@ async function waitUp(timeoutMs = 15000) {
 }
 
 /**
+ * 等端口真的空下来。
+ *
+ * ⚠️ 不能 kill 完立刻起新进程 —— 旧的还在释放端口，新的会绑定失败，
+ *    而 ping() 仍然会被**旧进程**应答，于是下一个套件跑在脏数据上。
+ */
+async function waitDown(timeoutMs = 10000) {
+  const t0 = Date.now();
+  while (Date.now() - t0 < timeoutMs) {
+    if (!(await ping())) return true;
+    await new Promise((r) => setTimeout(r, 200));
+  }
+  return false;
+}
+
+/**
  * 本脚本自己管理服务器：如果已经有在跑的（比如你手动起来的），就不重复起。
  */
 let ownServer = null;
@@ -88,6 +103,7 @@ for (const [file, label] of SUITES) {
   if (ownServer) {
     ownServer.kill();
     ownServer = null;
+    if (!(await waitDown())) throw new Error('旧服务器没退干净，端口还被占着');
     ownServer = spawn(process.execPath, [path.join(__dirname, 'profile-server.mjs')], {
       env: { ...process.env, PORT: String(PORT) },
       stdio: 'ignore',

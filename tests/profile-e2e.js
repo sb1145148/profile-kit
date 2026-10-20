@@ -5,7 +5,9 @@ const REPO = require('path').resolve(__dirname, '..');
 const TESTS = __dirname;
 
 
-const URL = 'http://127.0.0.1:8787/';
+// ⚠️ 原来写死了 8787，而其它测试都读 TARGET。
+//    8787 被占用时这个套件会打到错误的服务器上。
+const BASE_URL = process.env.TARGET || 'http://127.0.0.1:8787';
 let pass = 0, fail = 0; const log = [];
 const ok = (n, c, e) => { c ? (pass++, log.push('  ✅ ' + n)) : (fail++, log.push('  ❌ ' + n + (e ? '  → ' + e : ''))); };
 const section = t => log.push('\n【' + t + '】');
@@ -21,7 +23,7 @@ const section = t => log.push('\n【' + t + '】');
   page.on('dialog', async d => { dialogFired = d.message(); await d.dismiss(); });
 
   section('1. 页面加载与 Tailwind 生效');
-  await page.goto(URL, { waitUntil: 'domcontentloaded' });
+  await page.goto(BASE_URL, { waitUntil: 'domcontentloaded' });
   // 等资料卡真渲染出来再断言（改 domcontentloaded 后固定等待不够稳）
   await page.waitForFunction(
     () => document.querySelectorAll('#skills > *').length > 0
